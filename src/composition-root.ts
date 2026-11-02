@@ -27,6 +27,9 @@ import {
   type NotificationLogger,
 } from '#/features/notifications/infrastructure/events-subscriber.ts'
 import { InMemoryNotificationRepository } from '#/features/notifications/infrastructure/in-memory-notification-repository.ts'
+import { createNotificationCommandController } from '#/features/notifications/controllers/commands/notification-controller.ts'
+import { createNotificationQueryController } from '#/features/notifications/controllers/queries/notification-controller.ts'
+import { createRecipientMiddleware } from '#/features/notifications/controllers/recipient.ts'
 import { notificationRoutes } from '#/features/notifications/routes/notification-routes.ts'
 import type { EventBus } from '#/shared-kernel/event-bus.ts'
 import { InMemoryEventBus } from '#/infrastructure/messaging/in-memory-event-bus.ts'
@@ -154,13 +157,24 @@ export function createContainer(options: ContainerOptions): Container {
         reservationsFor: c.resolve(TOKEN.ListReservationsUseCase),
       }),
     )
+    .singleton(TOKEN.NotificationCommandController, (c) =>
+      createNotificationCommandController(c.resolve(TOKEN.NotificationService)),
+    )
+    .singleton(TOKEN.NotificationQueryController, (c) =>
+      createNotificationQueryController(c.resolve(TOKEN.NotificationService)),
+    )
     .singleton(TOKEN.App, (c) => {
       const app = createApp(
         c.resolve(TOKEN.EventCommandController),
         c.resolve(TOKEN.EventQueryController),
         c.resolve(TOKEN.UserQueryController),
       )
-      notificationRoutes(app, c.resolve(TOKEN.NotificationService))
+      notificationRoutes(
+        app,
+        c.resolve(TOKEN.NotificationCommandController),
+        c.resolve(TOKEN.NotificationQueryController),
+        createRecipientMiddleware(c.resolve(TOKEN.NotificationService)),
+      )
       return app
     })
 

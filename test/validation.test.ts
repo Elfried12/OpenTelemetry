@@ -4,11 +4,8 @@ import { InvalidInput } from '#/features/events/domain/errors.ts'
 import { UserId } from '#/features/events/domain/ids.ts'
 import { Option } from '#/shared-kernel/option.ts'
 import { Result } from '#/shared-kernel/result.ts'
-import {
-  parse,
-  parseOption,
-  userIdSchema,
-} from '#/features/events/validation.ts'
+import { userIdSchema } from '#/features/events/validation.ts'
+import { parse, parseOption } from '#/shared-kernel/validation.ts'
 
 describe('parseOption', () => {
   test('preserves None without running the schema', () => {

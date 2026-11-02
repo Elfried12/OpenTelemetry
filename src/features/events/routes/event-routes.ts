@@ -2,12 +2,12 @@ import type { Hono } from 'hono'
 import type { EventCommandController } from '#/features/events/controllers/commands/event-controller.ts'
 import type { EventQueryController } from '#/features/events/controllers/queries/event-controller.ts'
 import { httpFailure } from '#/features/events/controllers/http-result.ts'
-import { requestJson } from '#/features/events/request.ts'
+import { requestJson } from '#/infrastructure/http/request.ts'
+import { parse } from '#/shared-kernel/validation.ts'
 import { Result } from '#/shared-kernel/result.ts'
 import {
   createEventSchema,
   eventFilterSchema,
-  parse,
   reservationSchema,
   updateEventSchema,
   eventIdSchema,

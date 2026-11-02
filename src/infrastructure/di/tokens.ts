@@ -17,6 +17,8 @@ import type { EventQueryController } from '#/features/events/controllers/queries
 import type { UserQueryController } from '#/features/events/controllers/queries/user-controller.ts'
 import type { DomainEvent } from '#/features/events/contracts/events.ts'
 import type { EventEnvelope } from '#/shared-kernel/event-envelope.ts'
+import type { NotificationCommandController } from '#/features/notifications/controllers/commands/notification-controller.ts'
+import type { NotificationQueryController } from '#/features/notifications/controllers/queries/notification-controller.ts'
 import type { NotificationService } from '#/features/notifications/application/notification-service.ts'
 import type { NotificationRepository } from '#/features/notifications/application/ports.ts'
 import type { EventBus, Unsubscribe } from '#/shared-kernel/event-bus.ts'
@@ -31,6 +33,12 @@ export const TOKEN = {
     'NotificationRepository',
   ),
   NotificationService: createToken<NotificationService>('NotificationService'),
+  NotificationCommandController: createToken<NotificationCommandController>(
+    'NotificationCommandController',
+  ),
+  NotificationQueryController: createToken<NotificationQueryController>(
+    'NotificationQueryController',
+  ),
   NotificationSubscription: createToken<Unsubscribe>(
     'NotificationSubscription',
   ),

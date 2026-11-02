@@ -2,6 +2,8 @@ import type { NotificationRepository } from '#/features/notifications/applicatio
 import {
   composeNotification,
   type BookingNotice,
+  type Notification,
+  type Recipient,
 } from '#/features/notifications/domain/notification.ts'
 import { Option } from '#/shared-kernel/option.ts'
 
@@ -19,9 +21,7 @@ export class NotificationService {
     if (Option.isNone(recipient)) {
       return
     }
-    const notification = recipient.value.inboxEnabled
-      ? Option.some(composeNotification(notice, recipient.value, this.nextId()))
-      : Option.none()
+    const notification = this.notificationFor(notice, recipient.value)
     await this.repository.recordOnce(
       notice.sourceMessageId,
       recipient.value.id,
@@ -43,5 +43,15 @@ export class NotificationService {
 
   markRead(recipientId: string, notificationId: string) {
     return this.repository.markRead(recipientId, notificationId, this.now())
+  }
+
+  private notificationFor(
+    notice: BookingNotice,
+    recipient: Recipient,
+  ): Option<Notification> {
+    if (!recipient.inboxEnabled) {
+      return Option.none()
+    }
+    return Option.some(composeNotification(notice, recipient, this.nextId()))
   }
 }
