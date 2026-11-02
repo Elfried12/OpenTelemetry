@@ -19,7 +19,6 @@ import { createEventQueryController } from '#/features/events/controllers/querie
 import { createUserQueryController } from '#/features/events/controllers/queries/user-controller.ts'
 import { makeId } from '#/features/events/domain/ids.ts'
 import type { DomainEvent } from '#/features/events/contracts/events.ts'
-import type { EventEnvelope } from '#/shared-kernel/event-envelope.ts'
 import { NotificationService } from '#/features/notifications/application/notification-service.ts'
 import type { NotificationRepository } from '#/features/notifications/application/ports.ts'
 import {
@@ -38,7 +37,7 @@ export interface ContainerOptions {
   repository: EventRepository
   clock?: Clock
   ids?: IdGenerator
-  eventBus?: EventBus<EventEnvelope<DomainEvent>>
+  eventBus?: EventBus<DomainEvent>
   notificationLogger?: NotificationLogger
   notificationRepository?: NotificationRepository
 }
@@ -52,8 +51,7 @@ export function createContainer(options: ContainerOptions): Container {
     .singleton(TOKEN.IdGenerator, () => options.ids ?? { next: makeId })
     .singleton(
       TOKEN.EventBus,
-      () =>
-        options.eventBus ?? new InMemoryEventBus<EventEnvelope<DomainEvent>>(),
+      () => options.eventBus ?? new InMemoryEventBus<DomainEvent>(),
     )
     .singleton(
       TOKEN.NotificationRepository,
@@ -71,14 +69,22 @@ export function createContainer(options: ContainerOptions): Container {
     )
     .singleton(TOKEN.NotificationSubscription, (c) => {
       const notifications = c.resolve(TOKEN.NotificationService)
-      return c
-        .resolve(TOKEN.EventBus)
-        .subscribe(
-          eventsSubscriber(
-            notifications,
-            options.notificationLogger ?? console,
-          ),
-        )
+      const bus = c.resolve(TOKEN.EventBus)
+      const listener = eventsSubscriber(
+        notifications,
+        options.notificationLogger ?? console,
+      )
+      const unsubscribe = [
+        bus.subscribe('EventCreated', listener),
+        bus.subscribe('EventUpdated', listener),
+        bus.subscribe('EventReserved', listener),
+        bus.subscribe('ReservationCancelled', listener),
+      ]
+      return () => {
+        for (const stop of unsubscribe) {
+          stop()
+        }
+      }
     })
     .singleton(
       TOKEN.Identity,

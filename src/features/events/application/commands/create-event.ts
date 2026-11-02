@@ -25,7 +25,7 @@ export class CreateEventUseCase implements CommandHandler<
     private readonly repository: EventRepository,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
-    private readonly eventBus: EventBus<EventEnvelope<DomainEvent>>,
+    private readonly eventBus: EventBus<DomainEvent>,
   ) {}
 
   async execute(input: EventInput) {
@@ -56,7 +56,7 @@ export class CreateEventUseCase implements CommandHandler<
 }
 
 const eventCreated = (success: Readonly<EventData>) => ({
-  type: 'EventCreated' as const,
+  _tag: 'EventCreated' as const,
   content: {
     eventId: success.id,
     title: success.title,

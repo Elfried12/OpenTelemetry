@@ -17,22 +17,22 @@ interface ReservationDetails {
 }
 
 export interface EventCreated {
-  readonly type: 'EventCreated'
+  readonly _tag: 'EventCreated'
   readonly content: EventDetails
 }
 
 export interface EventUpdated {
-  readonly type: 'EventUpdated'
+  readonly _tag: 'EventUpdated'
   readonly content: EventDetails
 }
 
 export interface EventReserved {
-  readonly type: 'EventReserved'
+  readonly _tag: 'EventReserved'
   readonly content: ReservationDetails
 }
 
 export interface ReservationCancelled {
-  readonly type: 'ReservationCancelled'
+  readonly _tag: 'ReservationCancelled'
   readonly content: ReservationDetails
 }
 

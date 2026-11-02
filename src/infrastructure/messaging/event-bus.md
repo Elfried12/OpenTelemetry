@@ -51,7 +51,7 @@ The shared [envelope](../../shared-kernel/event-envelope.ts) adds delivery metad
   occurredAt: new Date('2030-01-01T00:00:00Z'),
   version: 1,
   event: {
-    type: 'EventReserved',
+    _tag: 'EventReserved',
     content: {
       reservationId: '01900000-0000-7000-8000-000000000010',
       eventId: '01900000-0000-7000-8000-000000000004',
@@ -76,9 +76,21 @@ objects. A network transport would also need serialization and runtime validatio
 ## The port does not promise durable delivery
 
 [EventBus](../../shared-kernel/event-bus.ts) defines `publish` and `subscribe`.
+Subscriptions name an event's `_tag`. The listener receives an envelope whose
+payload is narrowed to that member of the event union:
+
+```ts
+bus.subscribe('EventReserved', (envelope) => {
+  console.log(envelope.event.content.quantity)
+})
+```
+
+Unknown tags fail type checking. Delivery metadata remains on the envelope;
+subscribers receive the original envelope, not a reconstructed payload.
+
 [InMemoryEventBus](in-memory-event-bus.ts) supplies their execution policy:
 
-- Each publication snapshots the current listeners. A subscription change affects
+- Each publication snapshots only the listeners registered for its event's tag. A subscription change affects
   later publications, not the snapshot already running.
 - It starts listeners concurrently and waits for them all. Do not rely on one
   listener finishing before another.

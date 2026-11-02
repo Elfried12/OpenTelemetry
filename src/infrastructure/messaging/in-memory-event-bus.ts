@@ -3,22 +3,52 @@ import type {
   MessageListener,
   Unsubscribe,
 } from '#/shared-kernel/event-bus.ts'
+import type { EventEnvelope } from '#/shared-kernel/event-envelope.ts'
 
-export class InMemoryEventBus<Message> implements EventBus<Message> {
-  private readonly listeners = new Map<symbol, MessageListener<Message>>()
+export class InMemoryEventBus<
+  Event extends { _tag: string },
+> implements EventBus<Event> {
+  private readonly listenersByTag = new Map<
+    Event['_tag'],
+    Set<MessageListener<Event>>
+  >()
 
-  subscribe(listener: MessageListener<Message>): Unsubscribe {
-    const token = Symbol('event-listener')
-    this.listeners.set(token, listener)
+  subscribe<Tag extends Event['_tag']>(
+    tag: Tag,
+    listener: MessageListener<Extract<Event, { _tag: Tag }>>,
+  ): Unsubscribe {
+    const matches = (
+      message: EventEnvelope<Event>,
+    ): message is EventEnvelope<Extract<Event, { _tag: Tag }>> =>
+      message.event._tag === tag
+    const receive: MessageListener<Event> = (message) => {
+      if (matches(message)) {
+        return listener(message)
+      }
+    }
+
+    let listeners = this.listenersByTag.get(tag)
+    if (!listeners) {
+      listeners = new Set()
+      this.listenersByTag.set(tag, listeners)
+    }
+    const bucket = listeners
+    bucket.add(receive)
     return () => {
-      this.listeners.delete(token)
+      bucket.delete(receive)
+      if (bucket.size === 0 && this.listenersByTag.get(tag) === bucket) {
+        this.listenersByTag.delete(tag)
+      }
     }
   }
 
-  // Snapshot subscriptions, await every listener, and isolate both thrown and rejected failures.
-  async publish(message: Message): Promise<void> {
+  async publish(message: EventEnvelope<Event>): Promise<void> {
+    const listeners = this.listenersByTag.get(message.event._tag)
+    if (!listeners) {
+      return
+    }
     const results = await Promise.allSettled(
-      [...this.listeners.values()].map(async (listener) => listener(message)),
+      [...listeners].map(async (listener) => listener(message)),
     )
     for (const result of results) {
       if (result.status === 'rejected') {

@@ -13,11 +13,11 @@ export function eventsSubscriber(
   logger: NotificationLogger,
 ) {
   return async (envelope: EventEnvelope<DomainEvent>): Promise<void> => {
-    logger.log(`[notification] ${envelope.event.type}`, envelope)
+    logger.log(`[notification] ${envelope.event._tag}`, envelope)
     const event = envelope.event
     if (
-      event.type !== 'EventReserved' &&
-      event.type !== 'ReservationCancelled'
+      event._tag !== 'EventReserved' &&
+      event._tag !== 'ReservationCancelled'
     ) {
       return
     }
@@ -25,7 +25,7 @@ export function eventsSubscriber(
       sourceMessageId: envelope.messageId,
       bookingUserRef: event.content.userId,
       bookingRef: event.content.reservationId,
-      kind: event.type === 'EventReserved' ? 'confirmed' : 'cancelled',
+      kind: event._tag === 'EventReserved' ? 'confirmed' : 'cancelled',
       seats: event.content.quantity,
       occurredAt: envelope.occurredAt,
     })

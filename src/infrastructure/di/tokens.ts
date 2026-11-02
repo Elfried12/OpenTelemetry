@@ -16,7 +16,6 @@ import type { EventCommandController } from '#/features/events/controllers/comma
 import type { EventQueryController } from '#/features/events/controllers/queries/event-controller.ts'
 import type { UserQueryController } from '#/features/events/controllers/queries/user-controller.ts'
 import type { DomainEvent } from '#/features/events/contracts/events.ts'
-import type { EventEnvelope } from '#/shared-kernel/event-envelope.ts'
 import type { NotificationCommandController } from '#/features/notifications/controllers/commands/notification-controller.ts'
 import type { NotificationQueryController } from '#/features/notifications/controllers/queries/notification-controller.ts'
 import type { NotificationService } from '#/features/notifications/application/notification-service.ts'
@@ -28,7 +27,7 @@ export const TOKEN = {
   EventRepository: createToken<EventRepository>('EventRepository'),
   Clock: createToken<Clock>('Clock'),
   IdGenerator: createToken<IdGenerator>('IdGenerator'),
-  EventBus: createToken<EventBus<EventEnvelope<DomainEvent>>>('EventBus'),
+  EventBus: createToken<EventBus<DomainEvent>>('EventBus'),
   NotificationRepository: createToken<NotificationRepository>(
     'NotificationRepository',
   ),

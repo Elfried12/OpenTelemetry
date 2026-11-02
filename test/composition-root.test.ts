@@ -44,7 +44,7 @@ test('the mock logger receives the event name and payload through the shared bus
         occurredAt: new Date('2030-01-01T00:00:00Z'),
         version: 1,
         event: {
-          type: 'EventCreated',
+          _tag: 'EventCreated',
           content: { ...fixture.eventInput, eventId: expect.any(String) },
         },
       },

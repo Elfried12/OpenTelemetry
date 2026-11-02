@@ -28,7 +28,7 @@ export class CancelReservationUseCase implements CommandHandler<
     private readonly repository: EventRepository,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
-    private readonly eventBus: EventBus<EventEnvelope<DomainEvent>>,
+    private readonly eventBus: EventBus<DomainEvent>,
   ) {}
 
   async execute({ id, userId }: CancelReservationCommand) {
@@ -55,7 +55,7 @@ export class CancelReservationUseCase implements CommandHandler<
 }
 
 const reservationCancelled = (reservation: Readonly<ReservationData>) => ({
-  type: 'ReservationCancelled' as const,
+  _tag: 'ReservationCancelled' as const,
   content: {
     reservationId: reservation.id,
     eventId: reservation.eventId,

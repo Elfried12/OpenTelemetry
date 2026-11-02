@@ -34,7 +34,7 @@ export class ReserveEventUseCase implements CommandHandler<
     private readonly repository: EventRepository,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
-    private readonly eventBus: EventBus<EventEnvelope<DomainEvent>>,
+    private readonly eventBus: EventBus<DomainEvent>,
   ) {}
 
   async execute(input: ReserveEventCommand) {
@@ -74,7 +74,7 @@ export class ReserveEventUseCase implements CommandHandler<
 }
 
 const eventReserved = (reservation: Readonly<ReservationData>) => ({
-  type: 'EventReserved' as const,
+  _tag: 'EventReserved' as const,
   content: {
     reservationId: reservation.id,
     eventId: reservation.eventId,

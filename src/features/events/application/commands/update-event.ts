@@ -29,7 +29,7 @@ export class UpdateEventUseCase implements CommandHandler<
     private readonly repository: EventRepository,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
-    private readonly eventBus: EventBus<EventEnvelope<DomainEvent>>,
+    private readonly eventBus: EventBus<DomainEvent>,
   ) {}
 
   async execute({ id, patch }: UpdateEventCommand) {
@@ -49,7 +49,7 @@ export class UpdateEventUseCase implements CommandHandler<
       occurredAt: this.clock.now(),
       version: 1,
       event: {
-        type: 'EventUpdated',
+        _tag: 'EventUpdated',
         content: {
           eventId: event.id,
           title: event.title,

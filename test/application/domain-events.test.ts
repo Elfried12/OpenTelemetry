@@ -26,7 +26,7 @@ test('successful commands deliver domain facts inside event envelopes', async ()
     userId: app.alice,
   })
 
-  expect(app.notifications.map((envelope) => envelope.event.type)).toEqual([
+  expect(app.notifications.map((envelope) => envelope.event._tag)).toEqual([
     'EventCreated',
     'EventUpdated',
     'EventReserved',
@@ -42,7 +42,7 @@ test('successful commands deliver domain facts inside event envelopes', async ()
     expect(envelope.version).toBe(1)
   }
   expect(app.notifications[0]?.event).toEqual({
-    type: 'EventCreated',
+    _tag: 'EventCreated',
     content: {
       eventId: event.data.id,
       title: 'Game night',
@@ -100,9 +100,17 @@ test('successful reads publish nothing, including empty results', async () => {
   })
   app.notifications.length = 0
   const messages: unknown[] = []
-  app.container.resolve(TOKEN.EventBus).subscribe((envelope) => {
-    messages.push(envelope)
-  })
+  const bus = app.container.resolve(TOKEN.EventBus)
+  for (const tag of [
+    'EventCreated',
+    'EventUpdated',
+    'EventReserved',
+    'ReservationCancelled',
+  ] as const) {
+    bus.subscribe(tag, (envelope) => {
+      messages.push(envelope)
+    })
+  }
   await app.services.read.get.execute(event.data.id)
   await app.services.read.list.execute({ category: 'gaming' })
   await app.services.read.reservationsFor.execute(app.alice)
@@ -113,20 +121,19 @@ test('successful reads publish nothing, including empty results', async () => {
 test('publication follows persistence and awaits asynchronous subscribers', async () => {
   const app = anApplication()
   let observed = false
-  app.container.resolve(TOKEN.EventBus).subscribe(async (envelope) => {
-    if (envelope.event.type !== 'EventCreated') {
-      return
-    }
-    await Promise.resolve()
-    expect(
-      (
-        await app.repository.findEvent(
-          EventId.makeUnsafe(envelope.event.content.eventId),
-        )
-      )._tag,
-    ).toBe('Some')
-    observed = true
-  })
+  app.container
+    .resolve(TOKEN.EventBus)
+    .subscribe('EventCreated', async (envelope) => {
+      await Promise.resolve()
+      expect(
+        (
+          await app.repository.findEvent(
+            EventId.makeUnsafe(envelope.event.content.eventId),
+          )
+        )._tag,
+      ).toBe('Some')
+      observed = true
+    })
   await app.createEvent()
   expect(observed).toBe(true)
 })
@@ -150,7 +157,7 @@ test('retried reservation callbacks still publish only one committed envelope', 
   })
   expect(Result.isSuccess(result)).toBe(true)
   expect(attempts).toBe(2)
-  expect(app.notifications.map((envelope) => envelope.event.type)).toEqual([
+  expect(app.notifications.map((envelope) => envelope.event._tag)).toEqual([
     'EventReserved',
   ])
 })
