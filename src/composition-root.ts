@@ -12,6 +12,7 @@ import { DemoIdentity } from '#/features/events/application/demo-identity.ts'
 import type {
   Clock,
   EventRepository,
+  EventProjectionRepository,
   IdGenerator,
 } from '#/features/events/application/ports.ts'
 import { createEventCommandController } from '#/features/events/controllers/commands/event-controller.ts'
@@ -32,9 +33,11 @@ import { createRecipientMiddleware } from '#/features/notifications/controllers/
 import { notificationRoutes } from '#/features/notifications/routes/notification-routes.ts'
 import type { EventBus } from '#/shared-kernel/event-bus.ts'
 import { InMemoryEventBus } from '#/infrastructure/messaging/in-memory-event-bus.ts'
+import { createEventsReadModelSubscriber } from '#/features/events/infrastructure/events-read-model-subscriber.ts'
 
 export interface ContainerOptions {
   repository: EventRepository
+  readRepository?: EventProjectionRepository
   clock?: Clock
   ids?: IdGenerator
   eventBus?: EventBus<DomainEvent>
@@ -47,6 +50,19 @@ export function createContainer(options: ContainerOptions): Container {
   const container = new Container()
   container
     .singleton(TOKEN.EventRepository, () => options.repository)
+    .singleton(
+      TOKEN.EventReadRepository,
+      () => options.readRepository ?? options.repository,
+    )
+    .singleton(TOKEN.EventReadModelSubscription, (c) => {
+      if (!options.readRepository) {
+        return () => {}
+      }
+      return createEventsReadModelSubscriber(
+        options.repository,
+        options.readRepository,
+      ).subscribe(c.resolve(TOKEN.EventBus))
+    })
     .singleton(TOKEN.Clock, () => options.clock ?? { now: () => new Date() })
     .singleton(TOKEN.IdGenerator, () => options.ids ?? { next: makeId })
     .singleton(
@@ -132,11 +148,11 @@ export function createContainer(options: ContainerOptions): Container {
     )
     .singleton(
       TOKEN.ListEventsUseCase,
-      (c) => new ListEventsUseCase(c.resolve(TOKEN.EventRepository)),
+      (c) => new ListEventsUseCase(c.resolve(TOKEN.EventReadRepository)),
     )
     .singleton(
       TOKEN.GetEventUseCase,
-      (c) => new GetEventUseCase(c.resolve(TOKEN.EventRepository)),
+      (c) => new GetEventUseCase(c.resolve(TOKEN.EventReadRepository)),
     )
     .singleton(
       TOKEN.ListReservationsUseCase,
@@ -186,5 +202,6 @@ export function createContainer(options: ContainerOptions): Container {
 
   // Subscribe once even when callers resolve a use case without resolving the HTTP app.
   container.resolve(TOKEN.NotificationSubscription)
+  container.resolve(TOKEN.EventReadModelSubscription)
   return container
 }

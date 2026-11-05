@@ -1,4 +1,4 @@
-import type { EventRepository } from '#/features/events/application/ports.ts'
+import type { EventReadRepository } from '#/features/events/application/ports.ts'
 import type { Event } from '#/features/events/domain/event.ts'
 import type { EventId } from '#/features/events/domain/ids.ts'
 import { NotFound } from '#/features/events/domain/errors.ts'
@@ -10,7 +10,7 @@ export class GetEventUseCase implements QueryHandler<
   EventId,
   Result<Event, NotFound>
 > {
-  constructor(private readonly repository: EventRepository) {}
+  constructor(private readonly repository: EventReadRepository) {}
 
   async execute(id: EventId) {
     const event = await this.repository.findEvent(id)

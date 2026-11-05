@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { documentationRoutes } from '#/infrastructure/http/openapi.ts'
 import { HttpStatusCode } from '#/infrastructure/http/http-code.ts'
 import { HTTPException } from 'hono/http-exception'
 import type { EventCommandController } from '#/features/events/controllers/commands/event-controller.ts'
@@ -16,6 +17,7 @@ export function createApp(
   const app = new Hono()
   eventRoutes(app, commands, queries)
   userRoutes(app, users)
+  documentationRoutes(app)
   app.notFound((c) =>
     c.json(
       presentError('NOT_FOUND', 'Route not found'),

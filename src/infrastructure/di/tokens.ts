@@ -2,6 +2,7 @@ import type { Hono } from 'hono'
 import type {
   Clock,
   EventRepository,
+  EventReadRepository,
   IdGenerator,
 } from '#/features/events/application/ports.ts'
 import type { DemoIdentity } from '#/features/events/application/demo-identity.ts'
@@ -25,6 +26,10 @@ import { createToken } from '#/infrastructure/di/token.ts'
 
 export const TOKEN = {
   EventRepository: createToken<EventRepository>('EventRepository'),
+  EventReadRepository: createToken<EventReadRepository>('EventReadRepository'),
+  EventReadModelSubscription: createToken<Unsubscribe>(
+    'EventReadModelSubscription',
+  ),
   Clock: createToken<Clock>('Clock'),
   IdGenerator: createToken<IdGenerator>('IdGenerator'),
   EventBus: createToken<EventBus<DomainEvent>>('EventBus'),

@@ -20,12 +20,19 @@ export interface EventFilter {
   after?: Date
 }
 
+export interface EventReadRepository {
+  listEvents(filter: EventFilter): Promise<Event[]>
+  findEvent(id: EventId): Promise<Option<Event>>
+}
+
+export interface EventProjectionRepository extends EventReadRepository {
+  replaceEvents(events: readonly Event[]): Promise<void>
+}
+
 // Expected failures are values; infrastructure faults reject the promise.
 // Mutations are serialized by locks or optimistic compare-and-set. A Failure
 // causes no write. Callbacks may be retried and must not perform external effects.
-export interface EventRepository {
-  listEvents(filter: EventFilter): Promise<Event[]>
-  findEvent(id: EventId): Promise<Option<Event>>
+export interface EventRepository extends EventReadRepository {
   createEvent(event: Event): Promise<Result<Event, ApplicationError>>
   updateEvent(
     id: EventId,

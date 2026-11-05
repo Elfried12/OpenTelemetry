@@ -1,5 +1,6 @@
 import * as v from 'valibot'
 import { uuidV7Pattern } from '#/features/events/domain/ids.ts'
+import { errorDtoSchema } from '#/infrastructure/http/dtos.ts'
 
 // Response schemas validate serialized JSON, not domain Date objects.
 const identifier = v.pipe(v.string(), v.regex(uuidV7Pattern))
@@ -34,12 +35,7 @@ export const reservationDtoSchema = v.strictObject({
   cancelledAt: v.nullable(timestamp),
 })
 
-export const errorDtoSchema = v.strictObject({
-  error: v.strictObject({
-    code: nonEmptyText,
-    message: nonEmptyText,
-  }),
-})
+export { errorDtoSchema }
 
 export type EventDto = v.InferOutput<typeof eventDtoSchema>
 export type ReservationDto = v.InferOutput<typeof reservationDtoSchema>

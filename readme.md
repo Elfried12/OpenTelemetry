@@ -22,7 +22,11 @@ localhost:55432, and Adminer on http://localhost:8080.
 ## Environment variables
 
 Bun loads the API configuration from `.env`. Docker Compose uses the same file
-for the published service ports. `.env.example` contains the local demo settings.
+for the published service ports and PostgreSQL credentials. `.env.example` contains
+the local demo settings. `POSTGRES_DB`, `POSTGRES_USER` and `POSTGRES_PASSWORD`
+default to `events`. Keep `DATABASE_URL` in sync with those values and
+`POSTGRES_PORT`. PostgreSQL only applies initialization credentials to an empty
+volume; changing `.env` does not change an existing database's password or roles.
 
 | Variable           | Default                                           | Purpose                                                                            |
 | ------------------ | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -38,6 +42,22 @@ If you change `POSTGRES_PORT`, update the port in `DATABASE_URL` too. The same
 applies to `VALKEY_PORT` and `VALKEY_URL`. Restart the API after changing its
 configuration, and rerun `docker compose up -d --wait` after changing service ports.
 No model API key is needed.
+
+## Interactive API documentation
+
+Open [Scalar](http://127.0.0.1:3000/docs) to browse and try requests. The generated
+OpenAPI 3.1 document is at [`/openapi.json`](http://127.0.0.1:3000/openapi.json).
+Operations are grouped under Events, Reservations and Notifications, with request
+and response examples, constraints and error responses. For personal endpoints,
+set `X-User-Id` through Scalar's authentication control using a seeded demo user.
+
+Route files own their operation documentation. The helpers in
+`src/infrastructure/http/openapi.ts` reuse Valibot schemas and infer JSON example
+types from them. `documentRoute` supplies shared errors and demo identity metadata;
+`jsonBody`, `jsonResponse` and `parameter` handle the common OpenAPI structure.
+The existing request validation still runs unchanged. Checks that JSON Schema
+cannot express, such as future dates and a non-empty patch, are described in the
+operation text and enforced by the existing validators and application code.
 
 ## REST endpoints
 
@@ -101,16 +121,49 @@ Writes are not idempotent, so do not automatically retry a timed-out reservation
 ## Architecture
 
 ```text
-Events HTTP -> Events application -> Events domain -> events.* tables
-                       |
-                 published facts
+Events commands -> Events domain -> authoritative repository, PostgreSQL by default
                        |
                  in-memory event bus
                        |
-          Notifications translation adapter
-                       |
-Notifications HTTP -> Notifications application -> notifications.* tables
+           +-----------+------------------+
+           |                              |
+Events read-model subscriber    Notifications translation adapter
+           |                              |
+Valkey event read model          PostgreSQL notifications.inbox
+           |                              |
+Events queries                  Notifications queries
 ```
+
+### Event read model and user inbox
+
+The running API uses two event repositories. `EVENT_REPOSITORY` selects the
+write-side adapter. `GET /events` and `GET /events/{eventId}` use a separate
+`ValkeyEventReadRepository`, connected through `VALKEY_URL`. Identity, reservation
+queries and all commands still use the authoritative repository. A stale read
+model cannot bypass capacity checks.
+
+The Events read-model subscriber listens to `EventCreated` and `EventUpdated`.
+It reloads committed events and atomically replaces a Valkey snapshot at
+`events:read-model:v1`. Refreshes are serialized within the process, and replayed
+messages reload current state rather than overwriting it with old payloads.
+Startup rebuilds the projection before accepting traffic, including seeded events.
+Tests and embedded callers can omit `readRepository` to use one repository.
+
+This is a single-process lesson implementation. It scans and replaces the full
+event list, not an indexed large-data read store. The bus currently awaits its
+subscribers, but projection writes are separate from the authoritative commit.
+Subscriber failures are logged and do not roll back commands. A subsequent event
+refresh or application restart repairs the snapshot. There is no durable retry,
+periodic repair or cross-process ordering guarantee. Use an outbox and an ordered
+projection worker before running multiple API processes or requiring recovery
+without a restart.
+
+Notifications already has its own PostgreSQL inbox read model. Each row in
+`notifications.inbox` contains the recipient, subject, body, booking reference,
+creation time and read state. The `(recipient_id, created_at, id)` index supports
+owner-scoped retrieval in display order without joining Events tables. The
+subscriber records message deduplication and the inbox item in one transaction.
+No additional inbox table or migration is needed.
 
 The top-level feature folders name the business capabilities. This is screaming
 architecture: open `src/features` and you see Events and Notifications rather
@@ -122,8 +175,9 @@ Events publishes `EventCreated`, `EventUpdated`, `EventReserved` and
 `ReservationCancelled` through [its contract](src/features/events/contracts/events.ts).
 Notifications' [subscriber](src/features/notifications/infrastructure/events-subscriber.ts)
 translates reservation facts into local `BookingNotice` inputs. Creation and update
-facts are logged but do not produce inbox items. No subscriber loads an Events
-entity or calls its repository.
+facts are logged but do not produce inbox items. The Notifications subscriber
+never loads an Events entity or calls its repository. The separate read-model
+subscriber belongs to Events and only updates its own Valkey projection.
 
 The same person has different models in the two contexts:
 
@@ -324,6 +378,24 @@ docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U events -d events < sq
 The migration moves tables with their data and foreign keys. It aborts rather than
 merging if both schemas already contain the same table. Notifications seed data
 is independent; rerunning `init.sql` does not overwrite existing preferences.
+
+### Back up and restore PostgreSQL
+
+Both scripts use `.env` and PostgreSQL tools inside the running Compose container.
+Backups contain schema and data in one plain SQL file, not Valkey data or roles.
+
+```sh
+docker compose up -d --wait
+./scripts/backup.sh ./backups/before-changes.sql
+./scripts/restore.sh ./backups/before-changes.sql
+```
+
+Without a path, backup writes `backups/backup-<UTC timestamp>.sql`. Existing files
+are not overwritten, and `backups/` is ignored by Git.
+
+**Restore replaces objects included in the backup and their data.** Stop the API
+and other writers first. Only restore trusted SQL. Errors roll back the restore.
+Restart the API afterward to rebuild its Valkey read model.
 
 ### Inspect the database
 
