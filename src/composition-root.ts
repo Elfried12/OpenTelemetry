@@ -161,6 +161,7 @@ export function createContainer(options: ContainerOptions): Container {
     .singleton(TOKEN.EventCommandController, (c) =>
       createEventCommandController({
         identity: c.resolve(TOKEN.Identity),
+        clock: c.resolve(TOKEN.Clock),
         create: c.resolve(TOKEN.CreateEventUseCase),
         update: c.resolve(TOKEN.UpdateEventUseCase),
         reserve: c.resolve(TOKEN.ReserveEventUseCase),
@@ -169,6 +170,8 @@ export function createContainer(options: ContainerOptions): Container {
     )
     .singleton(TOKEN.EventQueryController, (c) =>
       createEventQueryController({
+        identity: c.resolve(TOKEN.Identity),
+        clock: c.resolve(TOKEN.Clock),
         list: c.resolve(TOKEN.ListEventsUseCase),
         get: c.resolve(TOKEN.GetEventUseCase),
       }),

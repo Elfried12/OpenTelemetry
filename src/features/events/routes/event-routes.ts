@@ -4,15 +4,18 @@ import {
   documentRoute,
   jsonBody,
   jsonResponse,
+  jsonResponseExamples,
   parameter,
 } from '#/infrastructure/http/openapi.ts'
 import {
-  eventDtoSchema,
-  reservationDtoSchema,
-} from '#/features/events/presentation/dtos.ts'
+  eventResourceSchema,
+  reservationResourceSchema,
+} from '#/features/events/presentation/resources.ts'
 import {
   createEventExample,
   eventExample,
+  authenticatedEventExample,
+  cancelledReservationExample,
   reservationExample,
 } from './examples.ts'
 import type { EventCommandController } from '#/features/events/controllers/commands/event-controller.ts'
@@ -56,7 +59,8 @@ export function eventRoutes(
       operationId: 'listEvents',
       summary: 'List events',
       description:
-        'Optional filters can be combined. Returns an empty array when no events match. There is no pagination.',
+        'Optional filters can be combined. Returns an empty array when no events match. There is no pagination. Each event includes _links. A known X-User-Id adds reserve for future events and reservations for the current user. An invalid supplied identity is rejected, not treated as anonymous.',
+      identity: 'optional',
       parameters: [
         parameter(
           'query',
@@ -75,10 +79,16 @@ export function eventRoutes(
       ],
       errors: [400],
       responses: {
-        200: jsonResponse(
-          v.array(eventDtoSchema),
-          [eventExample],
-          'Matching events',
+        200: jsonResponseExamples(
+          v.array(eventResourceSchema),
+          {
+            anonymous: { summary: 'Anonymous visitor', value: [eventExample] },
+            authenticated: {
+              summary: 'Known demo user',
+              value: [authenticatedEventExample],
+            },
+          },
+          'Matching events. Action links depend on identity and event start time.',
         ),
       },
     }),
@@ -95,13 +105,18 @@ export function eventRoutes(
     documentRoute('Events', {
       operationId: 'createEvent',
       summary: 'Create an event',
+      identity: 'optional',
       description:
         'Requires an existing venue and a start date in the future. Title and category are trimmed. Capacity is a positive 32-bit integer. Unknown fields are rejected.',
       requestBody: jsonBody(createEventSchema, createEventExample),
       errors: [400],
       responses: {
         201: {
-          ...jsonResponse(eventDtoSchema, eventExample, 'Event created'),
+          ...jsonResponse(
+            eventResourceSchema,
+            eventExample,
+            'Event created with links. A known X-User-Id also adds reserve and reservations.',
+          ),
           headers: {
             Location: {
               description: 'Relative URL of the created event',
@@ -125,10 +140,33 @@ export function eventRoutes(
     documentRoute('Events', {
       operationId: 'getEvent',
       summary: 'Get an event',
+      identity: 'optional',
+      description:
+        'Anonymous visitors receive self, collection and, before the event starts, update links. A known X-User-Id also adds reserve before the start and reservations. Invalid supplied identities return 400 or 401. Links do not guarantee available seats; the reservation command rechecks capacity.',
       parameters: [eventId],
       errors: [400, 404],
       responses: {
-        200: jsonResponse(eventDtoSchema, eventExample, 'Event details'),
+        200: jsonResponseExamples(
+          eventResourceSchema,
+          {
+            anonymous: { summary: 'Anonymous visitor', value: eventExample },
+            authenticated: {
+              summary: 'Known demo user',
+              value: authenticatedEventExample,
+            },
+            started: {
+              summary: 'Event has started, anonymous visitor',
+              value: {
+                ...eventExample,
+                _links: {
+                  self: eventExample._links.self,
+                  collection: eventExample._links.collection,
+                },
+              },
+            },
+          },
+          'Event details with available navigation and actions',
+        ),
       },
     }),
     async (c) => {
@@ -144,6 +182,7 @@ export function eventRoutes(
     documentRoute('Events', {
       operationId: 'updateEvent',
       summary: 'Update an event',
+      identity: 'optional',
       description:
         'Provide at least one field. Unknown fields are rejected. Capacity cannot be reduced below the seats already reserved.',
       parameters: [eventId],
@@ -151,7 +190,7 @@ export function eventRoutes(
       errors: [400, 404, 409],
       responses: {
         200: jsonResponse(
-          eventDtoSchema,
+          eventResourceSchema,
           { ...eventExample, capacity: 50 },
           'Updated event',
         ),
@@ -176,13 +215,13 @@ export function eventRoutes(
       summary: 'Reserve seats for an event',
       description:
         'Reserves a positive number of seats for the demo user. Returns a conflict when insufficient seats remain.',
-      authenticated: true,
+      identity: 'required',
       parameters: [eventId],
       requestBody: jsonBody(reservationSchema, { quantity: 2 }),
       errors: [404, 409],
       responses: {
         201: jsonResponse(
-          reservationDtoSchema,
+          reservationResourceSchema,
           reservationExample,
           'Reservation created',
         ),
@@ -207,14 +246,14 @@ export function eventRoutes(
       summary: 'Cancel my reservation',
       description:
         'Cancels a reservation owned by the demo user and releases its seats, even after the event starts. Repeating a cancellation returns a conflict. No request body is needed.',
-      authenticated: true,
+      identity: 'required',
       parameters: [reservationId],
       errors: [404, 409],
       responses: {
         200: jsonResponse(
-          reservationDtoSchema,
-          { ...reservationExample, cancelledAt: '2030-06-02T10:00:00.000Z' },
-          'Cancelled reservation',
+          reservationResourceSchema,
+          cancelledReservationExample,
+          'Cancelled reservation. The cancel link is no longer present.',
         ),
       },
     }),

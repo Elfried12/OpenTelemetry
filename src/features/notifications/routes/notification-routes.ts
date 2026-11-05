@@ -37,7 +37,7 @@ export function notificationRoutes(
       summary: 'List my notifications',
       description:
         'Returns the enrolled recipient inbox oldest first, including read notifications. Returns an empty array when there are none. There is no pagination.',
-      authenticated: true,
+      identity: 'required',
       responses: {
         200: jsonResponse(
           v.array(notificationDtoSchema),
@@ -53,7 +53,7 @@ export function notificationRoutes(
     documentRoute('Notifications', {
       operationId: 'getMyNotificationPreferences',
       summary: 'Get my notification preferences',
-      authenticated: true,
+      identity: 'required',
       responses: {
         200: jsonResponse(
           preferencesSchema,
@@ -71,7 +71,7 @@ export function notificationRoutes(
       summary: 'Update my notification preferences',
       description:
         'Disabling the inbox prevents new notifications from being composed. Existing notifications remain. Unknown fields are rejected.',
-      authenticated: true,
+      identity: 'required',
       requestBody: jsonBody(preferencesSchema, { inboxEnabled: false }),
       responses: {
         200: jsonResponse(
@@ -96,7 +96,7 @@ export function notificationRoutes(
       summary: 'Mark a notification as read',
       description:
         'Only notifications in your inbox can be marked read. Repeating the request preserves the first read timestamp. No request body is needed.',
-      authenticated: true,
+      identity: 'required',
       parameters: [
         parameter(
           'path',

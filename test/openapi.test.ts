@@ -3,9 +3,9 @@ import { generateSpecs } from 'hono-openapi'
 import * as v from 'valibot'
 import { TOKEN } from '#/infrastructure/di/tokens.ts'
 import {
-  eventDtoSchema,
-  reservationDtoSchema,
-} from '#/features/events/presentation/dtos.ts'
+  eventResourceSchema,
+  reservationResourceSchema,
+} from '#/features/events/presentation/resources.ts'
 import {
   createEventSchema,
   updateEventSchema,
@@ -70,7 +70,10 @@ test('documents every operation with unique IDs, feature tags, examples and shar
       }
       const media = response.content?.['application/json']
       expect(media?.schema).toBeDefined()
-      expect(media?.example).toBeDefined()
+      expect(media?.example ?? media?.examples).toBeDefined()
+      expect(
+        media?.example !== undefined && media?.examples !== undefined,
+      ).toBe(false)
     }
   }
 })
@@ -78,7 +81,26 @@ test('documents every operation with unique IDs, feature tags, examples and shar
 test('schemas preserve wire constraints and identity is only required on personal operations', async () => {
   const spec = await generateSpecs(fixture())
   const list = spec.paths['/events']?.get
-  expect(list?.security).toEqual([])
+  expect(list?.security).toEqual([{}, { DemoUser: [] }])
+  expect(
+    spec.paths['/events/{eventId}']?.get?.responses?.['200'],
+  ).toMatchObject({
+    content: {
+      'application/json': {
+        examples: {
+          anonymous: { value: { _links: { self: { method: 'GET' } } } },
+          authenticated: {
+            value: {
+              _links: {
+                reserve: { method: 'POST' },
+                reservations: { href: '/me/reservations' },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
   expect(list?.parameters).toMatchObject([
     {
       name: 'category',
@@ -127,13 +149,13 @@ test('schemas preserve wire constraints and identity is only required on persona
 test('all published request and response examples satisfy their Valibot contracts', async () => {
   const spec = await generateSpecs(fixture())
   const successSchemas: Record<string, v.GenericSchema> = {
-    listEvents: v.array(eventDtoSchema),
-    createEvent: eventDtoSchema,
-    getEvent: eventDtoSchema,
-    updateEvent: eventDtoSchema,
-    reserveEvent: reservationDtoSchema,
-    cancelReservation: reservationDtoSchema,
-    listMyReservations: v.array(reservationDtoSchema),
+    listEvents: v.array(eventResourceSchema),
+    createEvent: eventResourceSchema,
+    getEvent: eventResourceSchema,
+    updateEvent: eventResourceSchema,
+    reserveEvent: reservationResourceSchema,
+    cancelReservation: reservationResourceSchema,
+    listMyReservations: v.array(reservationResourceSchema),
     listMyNotifications: v.array(notificationDtoSchema),
     getMyNotificationPreferences: preferencesSchema,
     updateMyNotificationPreferences: preferencesSchema,
@@ -175,7 +197,17 @@ test('all published request and response examples satisfy their Valibot contract
             `Missing response contract for ${operation.operationId}`,
           )
         }
-        v.parse(schema, response.content?.['application/json']?.example)
+        const media = response.content?.['application/json']
+        if (media?.examples) {
+          for (const example of Object.values(media.examples)) {
+            if ('$ref' in example) {
+              throw new Error('Expected an inline example')
+            }
+            v.parse(schema, example.value)
+          }
+        } else {
+          v.parse(schema, media?.example)
+        }
       }
     }
   }

@@ -5,11 +5,11 @@ import { TOKEN } from '#/infrastructure/di/tokens.ts'
 import { InMemoryEventRepository } from '#/features/events/infrastructure/repository/in-memory-event-repository.ts'
 import { UserId, VenueId, EventId } from '#/features/events/domain/ids.ts'
 import { Option } from '#/shared-kernel/option.ts'
+import { errorDtoSchema } from '#/features/events/presentation/dtos.ts'
 import {
-  errorDtoSchema,
-  eventDtoSchema,
-  reservationDtoSchema,
-} from '#/features/events/presentation/dtos.ts'
+  eventResourceSchema,
+  reservationResourceSchema,
+} from '#/features/events/presentation/resources.ts'
 import { given } from './support/given.ts'
 
 const alice = UserId.makeUnsafe('01900000-0000-7000-8000-000000000001')
@@ -65,7 +65,7 @@ async function anEvent(capacity = 1) {
     venueId,
   })
   expect(response.status).toBe(201)
-  return { event: v.parse(eventDtoSchema, response.body) }
+  return { event: v.parse(eventResourceSchema, response.body) }
 }
 async function aReservation() {
   const fixture = await anEvent(2)
@@ -78,7 +78,7 @@ async function aReservation() {
   expect(response.status).toBe(201)
   return {
     ...fixture,
-    reservation: v.parse(reservationDtoSchema, response.body),
+    reservation: v.parse(reservationResourceSchema, response.body),
   }
 }
 
@@ -93,8 +93,8 @@ test('REST creation returns the DTO and Location for the persisted event', () =>
     .when((input) => http('POST', '/events', input))
     .then(async (response, input) => {
       expect(response.status).toBe(201)
-      const event = v.parse(eventDtoSchema, response.body)
-      expect(event).toEqual({ ...input, id: event.id })
+      const event = v.parse(eventResourceSchema, response.body)
+      expect(event).toEqual({ ...input, id: event.id, _links: event._links })
       expect(response.headers.get('Location')).toBe(`/events/${event.id}`)
       const persisted = await http('GET', `/events/${event.id}`)
       expect(persisted.status).toBe(200)
@@ -189,10 +189,14 @@ test('REST cancellation preserves Option state and hides other users bookings', 
       const expected = {
         ...reservation,
         cancelledAt: '2030-01-01T00:00:00.000Z',
+        _links: {
+          collection: reservation._links.collection,
+          event: reservation._links.event,
+        },
       }
       expect(cancelled.body).toEqual(expected)
       expect(
-        v.parse(v.array(reservationDtoSchema), listed.body),
+        v.parse(v.array(reservationResourceSchema), listed.body),
       ).toContainEqual(expected)
       const stored = (await repository.listReservations(alice)).find(
         ({ data }) => data.id === reservation.id,

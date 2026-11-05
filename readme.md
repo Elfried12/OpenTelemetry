@@ -59,6 +59,37 @@ The existing request validation still runs unchanged. Checks that JSON Schema
 cannot express, such as future dates and a non-empty patch, are described in the
 operation text and enforced by the existing validators and application code.
 
+### HATEOAS for events and reservations
+
+Event and reservation responses keep their existing fields and add `_links`.
+Each link has a relative `href` and an HTTP `method`. This is an `application/json`
+convention, not HAL. Lists remain arrays of resources, not new envelopes.
+
+| Response | Available links |
+| --- | --- |
+| Future event, anonymous | `self`, `collection`, `update` |
+| Future event, known `X-User-Id` | Also `reserve` and `reservations` |
+| Started event | No `update` or `reserve`; known users still get `reservations` |
+| Active reservation, owner | `event`, `collection`, `cancel` |
+| Cancelled reservation, owner | `event`, `collection`, no `cancel` |
+
+Create and update remain public in this demo. Supplying an identity is optional
+on event reads and writes, but a malformed supplied ID returns `400` and an
+unknown user returns `401`. Personalized event responses use
+`Vary: X-User-Id` and `Cache-Control: private, no-store`.
+
+In Scalar, select the anonymous, authenticated or started-event response example
+on `GET /events/{eventId}`. To see the difference at runtime, request an event
+without a header, then with a seeded user's `X-User-Id`. Follow `reserve` with
+`{ "quantity": 1 }`, then the returned reservation's `cancel` link. The cancelled
+response no longer advertises cancellation. Reservation routes still check the
+owner, and reservation commands still check capacity. A link is not a guarantee
+that a later request will succeed.
+
+The schemas and presenters in `src/features/events/presentation/resources.ts`
+own these relations. Domain objects and the underlying DTOs do not carry links.
+Notification responses are unchanged.
+
 ## REST endpoints
 
 | Endpoint                                          | Input                                                  | Concept                                                                                     |

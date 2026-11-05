@@ -35,6 +35,20 @@ export function jsonResponse<Schema extends v.GenericSchema>(
   return { description, content: jsonContent(schema, example) }
 }
 
+export function jsonResponseExamples<Schema extends v.GenericSchema>(
+  schema: Schema,
+  examples: Record<
+    string,
+    { summary: string; value: NoInfer<v.InferInput<Schema>> }
+  >,
+  description: string,
+) {
+  return {
+    description,
+    content: { 'application/json': { schema: resolver(schema), examples } },
+  }
+}
+
 export function parameter<Schema extends v.GenericSchema>(
   location: 'path' | 'query' | 'header',
   name: string,
@@ -80,15 +94,22 @@ export function documentRoute(
     operationId: string
     summary: string
     errors?: readonly FailureStatus[]
-    authenticated?: boolean
+    identity?: 'optional' | 'required'
   },
 ) {
-  const { errors = [], authenticated = false, ...operation } = options
+  const { errors = [], identity, ...operation } = options
+  const security: NonNullable<DescribeRouteOptions['security']> = []
+  if (identity === 'optional') {
+    security.push({})
+  }
+  if (identity) {
+    security.push({ DemoUser: [] })
+  }
   const responses: NonNullable<DescribeRouteOptions['responses']> = {}
   for (const status of new Set<FailureStatus>([
     500,
     ...errors,
-    ...(authenticated ? ([400, 401] as const) : []),
+    ...(identity ? ([400, 401] as const) : []),
   ])) {
     const [code, message] = failures[status]
     responses[status] = jsonResponse(
@@ -100,7 +121,7 @@ export function documentRoute(
   return describeRoute({
     ...operation,
     tags: [tag],
-    security: authenticated ? [{ DemoUser: [] }] : [],
+    security,
     responses: { ...responses, ...operation.responses },
   })
 }
