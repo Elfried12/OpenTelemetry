@@ -27,6 +27,7 @@ test('the mock logger receives the event name and payload through the shared bus
   const fixture = anApplication()
   const logs: { message: string; event: EventEnvelope<DomainEvent> }[] = []
   const container = createContainer({
+    applicationSecretKey: 'test-application-secret-key-not-for-production',
     repository: fixture.repository,
     clock: { now: () => new Date('2030-01-01T00:00:00Z') },
     notificationLogger: {

@@ -14,7 +14,9 @@ function request(name: string, method: string, path: string, body?: unknown) {
         ...(body === undefined
           ? []
           : [{ key: 'Content-Type', value: 'application/json' }]),
-        { key: 'X-User-Id', value: userId },
+        ...(path === '/user/auth' && method === 'POST'
+          ? []
+          : [{ key: 'Authorization', value: 'Bearer {{token}}' }]),
       ],
       ...(body === undefined
         ? {}
@@ -33,12 +35,17 @@ const collection = {
   info: {
     name: 'Day 2: Events REST API',
     description:
-      'Requests send Alice identity. Copy reservationId from a response before cancelling.',
+      'Create a session first and copy its token into the token variable. Copy reservationId before cancelling.',
     schema:
       'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
   },
-  variable: [{ key: 'reservationId', value: 'REPLACE_WITH_RESERVATION_ID' }],
+  variable: [
+    { key: 'reservationId', value: 'REPLACE_WITH_RESERVATION_ID' },
+    { key: 'token', value: '' },
+  ],
   item: [
+    request('Create demo session', 'POST', '/user/auth', { userId }),
+    request('Revoke current session', 'DELETE', '/user/auth'),
     request('List events', 'GET', '/events?category=gaming'),
     request('Create event', 'POST', '/events', {
       title: 'Game night',

@@ -10,7 +10,7 @@ export class DemoIdentity {
   async requireUser(id: Option<UserId>): Promise<Result<UserId, Unauthorized>> {
     if (Option.isNone(id) || !(await this.repository.userExists(id.value))) {
       return Result.fail(
-        new Unauthorized('A known X-User-Id is required for this demo'),
+        new Unauthorized('An authenticated booking user is required'),
       )
     }
     return Result.succeed(id.value)

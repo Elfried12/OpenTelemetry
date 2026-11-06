@@ -14,7 +14,7 @@ import { Result } from '#/shared-kernel/result.ts'
 import { anApplication } from '../support/application-fixture.ts'
 
 let client: RedisClient
-let close = async () => { }
+let close = async () => {}
 beforeAll(async () => {
   const container = await new GenericContainer('valkey/valkey:8-alpine')
     .withExposedPorts(6379)
@@ -39,10 +39,11 @@ test('event queries use Valkey while writes and seat checks use the authoritativ
   )
   await projection.replaceEvents([])
   const container = createContainer({
+    applicationSecretKey: 'test-application-secret-key-not-for-production',
     repository: fixture.repository,
     readRepository: projection,
     clock: { now: () => new Date('2030-01-01') },
-    notificationLogger: { log() { } },
+    notificationLogger: { log() {} },
   })
   const event = Result.getOrThrow(
     await container
@@ -65,7 +66,7 @@ test('event queries use Valkey while writes and seat checks use the authoritativ
     await projection.listEvents({ after: fixture.eventInput.startsAt }),
   ).toEqual([])
 
-  // A missing/stale projection must never allow overbooking or block commands.
+  // Commands must check capacity even if the read model is missing or stale.
   await projection.replaceEvents([])
   expect(await container.resolve(TOKEN.ListEventsUseCase).execute({})).toEqual(
     [],
@@ -90,7 +91,7 @@ test('event queries use Valkey while writes and seat checks use the authoritativ
     ),
   ).toBe(true)
 
-  // Rebuild repairs lost projections and includes existing records.
+  // Rebuilding restores the read model from stored events.
   const subscriber = createEventsReadModelSubscriber(
     fixture.repository,
     projection,

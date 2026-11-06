@@ -12,9 +12,12 @@ export type NotificationEnv = { Variables: { recipient: Recipient } }
 
 export function createRecipientMiddleware(service: NotificationService) {
   return createMiddleware<NotificationEnv>(async (context, next) => {
-    const header = context.req.header('X-User-Id')
+    const header = context.get('identityUserId') as string | undefined
     if (header === undefined) {
-      return httpFailure(context, new Unauthorized('X-User-Id is required'))
+      return httpFailure(
+        context,
+        new Unauthorized('A valid bearer session is required'),
+      )
     }
     const parsed = parse(bookingUserRefSchema, header)
     if (Result.isFailure(parsed)) {

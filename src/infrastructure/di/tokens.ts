@@ -15,7 +15,7 @@ import type { GetEventUseCase } from '#/features/events/application/queries/get-
 import type { ListReservationsUseCase } from '#/features/events/application/queries/list-reservations.ts'
 import type { EventCommandController } from '#/features/events/controllers/commands/event-controller.ts'
 import type { EventQueryController } from '#/features/events/controllers/queries/event-controller.ts'
-import type { UserQueryController } from '#/features/events/controllers/queries/user-controller.ts'
+import type { SessionService } from '#/features/identity/application/session-service.ts'
 import type { DomainEvent } from '#/features/events/contracts/events.ts'
 import type { NotificationCommandController } from '#/features/notifications/controllers/commands/notification-controller.ts'
 import type { NotificationQueryController } from '#/features/notifications/controllers/queries/notification-controller.ts'
@@ -64,6 +64,6 @@ export const TOKEN = {
   EventQueryController: createToken<EventQueryController>(
     'EventQueryController',
   ),
-  UserQueryController: createToken<UserQueryController>('UserQueryController'),
+  SessionService: createToken<SessionService>('SessionService'),
   App: createToken<Hono>('App'),
 } as const

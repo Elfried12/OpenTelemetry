@@ -1,3 +1,5 @@
+import * as v from 'valibot'
+import { PostgresIdentityRepository } from '#/features/identity/infrastructure/postgres-identity-repository.ts'
 import { createContainer } from '#/composition-root.ts'
 import { createPersistence } from '#/features/events/infrastructure/persistence.ts'
 import { TOKEN } from '#/infrastructure/di/tokens.ts'
@@ -5,10 +7,21 @@ import { RedisClient, SQL } from 'bun'
 import { ValkeyEventReadRepository } from '#/features/events/infrastructure/repository/valkey-event-read-repository.ts'
 import { PostgresNotificationRepository } from '#/features/notifications/infrastructure/postgres-notification-repository.ts'
 
+const applicationSecretKey = v.parse(
+  v.pipe(
+    v.string('APPLICATION_SECRET_KEY is required'),
+    v.minLength(
+      32,
+      'APPLICATION_SECRET_KEY must contain at least 32 characters',
+    ),
+  ),
+  process.env.APPLICATION_SECRET_KEY,
+)
+
 const persistence = createPersistence(
   process.env.EVENT_REPOSITORY ?? 'postgres',
 )
-// Both contexts use one database, but each adapter owns its schema and model.
+// Identity and Notifications share a connection but query separate schemas.
 const notificationSql = new SQL(
   process.env.DATABASE_URL ?? 'postgres://events:events@localhost:55432/events',
 )
@@ -16,10 +29,12 @@ const readModelClient = new RedisClient(
   process.env.VALKEY_URL ?? 'redis://localhost:56379',
 )
 const readRepository = new ValkeyEventReadRepository(readModelClient)
-// Rebuild seeded and pre-existing events before accepting HTTP traffic.
+// Load all stored events into the read model before accepting requests.
 await readRepository.replaceEvents(await persistence.repository.listEvents({}))
 const container = createContainer({
+  applicationSecretKey,
   repository: persistence.repository,
+  identityRepository: new PostgresIdentityRepository(notificationSql),
   readRepository,
   notificationRepository: new PostgresNotificationRepository(notificationSql),
 })

@@ -14,11 +14,11 @@ async function fixture() {
 }
 
 test('the same public event has different action links for anonymous and known users', async () => {
-  const { app, event, alice } = await fixture()
+  const { app, event, alice, headersFor } = await fixture()
   const path = `/events/${event.data.id}`
   const anonymousResponse = await app.request(path)
   const memberResponse = await app.request(path, {
-    headers: { 'X-User-Id': alice },
+    headers: await headersFor(alice),
   })
   expect(anonymousResponse.status).toBe(200)
   expect(memberResponse.status).toBe(200)
@@ -38,10 +38,12 @@ test('the same public event has different action links for anonymous and known u
     },
   })
   for (const response of [anonymousResponse, memberResponse]) {
-    expect(response.headers.get('Vary')).toContain('X-User-Id')
+    expect(response.headers.get('Vary')).toContain('Authorization')
     expect(response.headers.get('Cache-Control')).toBe('private, no-store')
   }
-  const list = await app.request('/events', { headers: { 'X-User-Id': alice } })
+  const list = await app.request('/events', {
+    headers: await headersFor(alice),
+  })
   expect(v.parse(v.array(eventResourceSchema), await list.json())).toEqual([
     member,
   ])
@@ -52,8 +54,11 @@ test('the same public event has different action links for anonymous and known u
 })
 
 test('public event writes return the same identity-aware link format', async () => {
-  const { app, alice, eventInput } = await fixture()
-  const headers = { 'X-User-Id': alice, 'Content-Type': 'application/json' }
+  const { app, alice, eventInput, headersFor } = await fixture()
+  const headers = {
+    ...(await headersFor(alice)),
+    'Content-Type': 'application/json',
+  }
   const created = await app.request('/events', {
     method: 'POST',
     headers,
@@ -85,10 +90,13 @@ test('public event writes return the same identity-aware link format', async () 
 test('invalid supplied identities are rejected, including before a public write', async () => {
   const { app, event, eventInput, repository } = await fixture()
   for (const [user, status] of [
-    ['invalid', 400],
+    ['invalid', 401],
     [UserId.make(), 401],
   ] as const) {
-    const headers = { 'X-User-Id': user, 'Content-Type': 'application/json' }
+    const headers = {
+      Authorization: `Bearer ${user}`,
+      'Content-Type': 'application/json',
+    }
     for (const path of ['/events', `/events/${event.data.id}`]) {
       expect((await app.request(path, { headers })).status).toBe(status)
     }
@@ -114,10 +122,10 @@ test('invalid supplied identities are rejected, including before a public write'
 })
 
 test('update and reserve actions disappear at the exact event start', async () => {
-  const { app, alice, event, advanceTo } = await fixture()
+  const { app, alice, event, advanceTo, headersFor } = await fixture()
   const path = `/events/${event.data.id}`
-  const headers = { 'X-User-Id': alice }
   advanceTo(event.data.startsAt)
+  const headers = await headersFor(alice)
   const response = await app.request(path, { headers })
   const resource = v.parse(eventResourceSchema, await response.json())
   expect(resource._links.update).toBeUndefined()
@@ -135,8 +143,11 @@ test('update and reserve actions disappear at the exact event start', async () =
 })
 
 test('clients can follow reserve, collection, cancellation and event links', async () => {
-  const { app, alice, bob, event } = await fixture()
-  const headers = { 'X-User-Id': alice, 'Content-Type': 'application/json' }
+  const { app, alice, bob, event, headersFor } = await fixture()
+  const headers = {
+    ...(await headersFor(alice)),
+    'Content-Type': 'application/json',
+  }
   const resource = v.parse(
     eventResourceSchema,
     await (await app.request(`/events/${event.data.id}`, { headers })).json(),
@@ -166,7 +177,7 @@ test('clients can follow reserve, collection, cancellation and event links', asy
   ).toEqual([reservation])
   const denied = await app.request(cancel.href, {
     method: cancel.method,
-    headers: { 'X-User-Id': bob },
+    headers: await headersFor(bob),
   })
   expect(denied.status).toBe(404)
   const cancelled = await app.request(cancel.href, {
@@ -188,7 +199,7 @@ test('clients can follow reserve, collection, cancellation and event links', asy
 })
 
 test('advertised actions do not bypass identity or capacity checks', async () => {
-  const { app, event, alice } = await fixture()
+  const { app, event, alice, headersFor } = await fixture()
   const path = `/events/${event.data.id}/reservations`
   const body = JSON.stringify({ quantity: 3 })
   const anonymous = await app.request(path, {
@@ -199,7 +210,10 @@ test('advertised actions do not bypass identity or capacity checks', async () =>
   expect(anonymous.status).toBe(401)
   const overbooked = await app.request(path, {
     method: 'POST',
-    headers: { 'X-User-Id': alice, 'Content-Type': 'application/json' },
+    headers: {
+      ...(await headersFor(alice)),
+      'Content-Type': 'application/json',
+    },
     body,
   })
   expect(overbooked.status).toBe(409)

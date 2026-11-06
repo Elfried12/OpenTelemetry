@@ -17,7 +17,11 @@ import type {
 } from '#/features/events/application/ports.ts'
 import { createEventCommandController } from '#/features/events/controllers/commands/event-controller.ts'
 import { createEventQueryController } from '#/features/events/controllers/queries/event-controller.ts'
-import { createUserQueryController } from '#/features/events/controllers/queries/user-controller.ts'
+import { SessionService } from '#/features/identity/application/session-service.ts'
+import type { IdentityRepository } from '#/features/identity/application/ports.ts'
+import { InMemoryIdentityRepository } from '#/features/identity/infrastructure/in-memory-identity-repository.ts'
+import { sessionMiddleware } from '#/features/identity/routes/session-middleware.ts'
+import { sessionRoutes } from '#/features/identity/routes/session-routes.ts'
 import { makeId } from '#/features/events/domain/ids.ts'
 import type { DomainEvent } from '#/features/events/contracts/events.ts'
 import { NotificationService } from '#/features/notifications/application/notification-service.ts'
@@ -36,7 +40,9 @@ import { InMemoryEventBus } from '#/infrastructure/messaging/in-memory-event-bus
 import { createEventsReadModelSubscriber } from '#/features/events/infrastructure/events-read-model-subscriber.ts'
 
 export interface ContainerOptions {
+  applicationSecretKey: string
   repository: EventRepository
+  identityRepository?: IdentityRepository
   readRepository?: EventProjectionRepository
   clock?: Clock
   ids?: IdGenerator
@@ -50,6 +56,15 @@ export function createContainer(options: ContainerOptions): Container {
   const container = new Container()
   container
     .singleton(TOKEN.EventRepository, () => options.repository)
+    .singleton(
+      TOKEN.SessionService,
+      (c) =>
+        new SessionService(
+          options.identityRepository ?? new InMemoryIdentityRepository(),
+          options.applicationSecretKey,
+          () => c.resolve(TOKEN.Clock).now(),
+        ),
+    )
     .singleton(
       TOKEN.EventReadRepository,
       () => options.readRepository ?? options.repository,
@@ -174,11 +189,6 @@ export function createContainer(options: ContainerOptions): Container {
         clock: c.resolve(TOKEN.Clock),
         list: c.resolve(TOKEN.ListEventsUseCase),
         get: c.resolve(TOKEN.GetEventUseCase),
-      }),
-    )
-    .singleton(TOKEN.UserQueryController, (c) =>
-      createUserQueryController({
-        identity: c.resolve(TOKEN.Identity),
         reservationsFor: c.resolve(TOKEN.ListReservationsUseCase),
       }),
     )
@@ -192,8 +202,9 @@ export function createContainer(options: ContainerOptions): Container {
       const app = createApp(
         c.resolve(TOKEN.EventCommandController),
         c.resolve(TOKEN.EventQueryController),
-        c.resolve(TOKEN.UserQueryController),
+        sessionMiddleware(c.resolve(TOKEN.SessionService)),
       )
+      sessionRoutes(app, c.resolve(TOKEN.SessionService))
       notificationRoutes(
         app,
         c.resolve(TOKEN.NotificationCommandController),

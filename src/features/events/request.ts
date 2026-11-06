@@ -9,9 +9,9 @@ import { Result } from '#/shared-kernel/result.ts'
 
 // Public event responses vary by identity. An invalid supplied identity is not anonymous.
 export async function requestViewer(context: Context, identity: DemoIdentity) {
-  context.header('Vary', 'X-User-Id', { append: true })
+  context.header('Vary', 'Authorization', { append: true })
   context.header('Cache-Control', 'private, no-store')
-  const header = context.req.header('X-User-Id')
+  const header = context.get('identityUserId') as string | undefined
   if (header === undefined) {
     return Result.succeed(Option.none<UserId>())
   }

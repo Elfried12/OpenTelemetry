@@ -110,9 +110,9 @@ describe('tagged event bus demo', () => {
 
   test('delivers the original payload to every matching subscriber and no others', async () => {
     const bus = new InMemoryTaggedEventBus<DomainEvent>()
-    const first = mock((_event: EventReserved) => { })
-    const second = mock((_event: EventReserved) => { })
-    const unrelated = mock((_event: EventCreated) => { })
+    const first = mock((_event: EventReserved) => {})
+    const second = mock((_event: EventReserved) => {})
+    const unrelated = mock((_event: EventCreated) => {})
     bus.subscribe('EventReserved', first)
     bus.subscribe('EventReserved', second)
     bus.subscribe('EventCreated', unrelated)
@@ -128,7 +128,7 @@ describe('tagged event bus demo', () => {
 
   test('unsubscribes one registration without removing another for the same callback', async () => {
     const bus = new InMemoryTaggedEventBus<DomainEvent>()
-    const listener = mock((_event: EventReserved) => { })
+    const listener = mock((_event: EventReserved) => {})
     const unsubscribe = bus.subscribe('EventReserved', listener)
     bus.subscribe('EventReserved', listener)
 
@@ -143,7 +143,7 @@ describe('tagged event bus demo', () => {
 
   test('an old unsubscribe cannot remove a replacement subscription bucket', async () => {
     const bus = new InMemoryTaggedEventBus<DomainEvent>()
-    const listener = mock((_event: EventReserved) => { })
+    const listener = mock((_event: EventReserved) => {})
     const unsubscribe = bus.subscribe('EventReserved', listener)
     unsubscribe()
     bus.subscribe('EventReserved', listener)
@@ -156,7 +156,7 @@ describe('tagged event bus demo', () => {
   test('subscription changes during delivery affect only subsequent publications', async () => {
     const bus = new InMemoryTaggedEventBus<DomainEvent>()
     const received: string[] = []
-    let unsubscribe = () => { }
+    let unsubscribe = () => {}
     bus.subscribe('EventReserved', () => {
       unsubscribe()
     })
@@ -173,7 +173,7 @@ describe('tagged event bus demo', () => {
     const bus = new InMemoryTaggedEventBus<DomainEvent>()
     await bus.publish(reserved)
 
-    const listener = mock((_event: EventReserved) => { })
+    const listener = mock((_event: EventReserved) => {})
     bus.subscribe('EventReserved', listener)
     expect(listener).not.toHaveBeenCalled()
 
@@ -189,7 +189,7 @@ describe('tagged event bus demo', () => {
     const release = Promise.withResolvers<void>()
     let completed = false
     let published = false
-    const fast = mock(() => { })
+    const fast = mock(() => {})
     bus.subscribe('EventReserved', async () => {
       started.resolve()
       await release.promise
@@ -217,8 +217,8 @@ describe('tagged event bus demo', () => {
     const bus = new InMemoryTaggedEventBus<DomainEvent>()
     const thrown = new Error('Synchronous failure')
     const rejected = new Error('Asynchronous failure')
-    const log = spyOn(console, 'error').mockImplementation(() => { })
-    const healthy = mock((_event: EventReserved) => { })
+    const log = spyOn(console, 'error').mockImplementation(() => {})
+    const healthy = mock((_event: EventReserved) => {})
     bus.subscribe('EventReserved', () => {
       throw thrown
     })

@@ -1,3 +1,6 @@
+import * as v from 'valibot'
+import { sessionSchema } from '#/features/identity/routes/session-routes.ts'
+import { InMemoryIdentityRepository } from '#/features/identity/infrastructure/in-memory-identity-repository.ts'
 import { createContainer } from '#/composition-root.ts'
 import { TOKEN } from '#/infrastructure/di/tokens.ts'
 import type { DomainEvent } from '#/features/events/contracts/events.ts'
@@ -19,7 +22,9 @@ export function anApplication() {
   })
   const notifications: EventEnvelope<DomainEvent>[] = []
   const container = createContainer({
+    applicationSecretKey: 'test-application-secret-key-not-for-production',
     repository,
+    identityRepository: new InMemoryIdentityRepository(new Set([alice, bob])),
     clock: { now: () => new Date(now) },
     notificationLogger: {
       log: (_message, event) => {
@@ -56,6 +61,13 @@ export function anApplication() {
     notifications,
     services,
     eventInput,
+    async headersFor(userId: string) {
+      const session = v.parse(
+        sessionSchema,
+        await container.resolve(TOKEN.SessionService).create(userId),
+      )
+      return { Authorization: `Bearer ${session.token}` }
+    },
     advanceTo(date: Date) {
       now = new Date(date)
     },

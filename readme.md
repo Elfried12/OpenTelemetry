@@ -1,9 +1,9 @@
 # Day 2: Events REST API
 
-A Hono API with two bounded contexts, Events and Notifications. Each context owns
-its application logic, domain model and persistence. Events manages seats and
-reservations. Notifications manages recipients, inbox preferences and read state.
-They communicate through an in-process event bus, not shared repositories.
+A Hono API with Identity, Events and Notifications contexts. Identity owns fake
+login accounts and revocable sessions. Events manages seats and reservations.
+Notifications manages recipients, inbox preferences and read state. Events and
+Notifications communicate through an in-process event bus, not shared repositories.
 
 ## Run locally
 
@@ -11,6 +11,7 @@ Requires Bun and Docker Compose. From this directory:
 
 ```sh
 cp .env.example .env
+printf '\nAPPLICATION_SECRET_KEY=%s\n' "$(openssl rand -hex 32)" >> .env
 bun install
 docker compose up -d --wait
 bun run dev
@@ -27,6 +28,12 @@ the local demo settings. `POSTGRES_DB`, `POSTGRES_USER` and `POSTGRES_PASSWORD`
 default to `events`. Keep `DATABASE_URL` in sync with those values and
 `POSTGRES_PORT`. PostgreSQL only applies initialization credentials to an empty
 volume; changing `.env` does not change an existing database's password or roles.
+
+`APPLICATION_SECRET_KEY` is required and must contain at least 32 characters.
+Generate it with `openssl rand -hex 32` and keep it private in `.env` or your
+secret manager. All API instances must use the same key to resolve and revoke
+shared sessions. Changing the key invalidates existing sessions. Sessions stored
+with the previous unkeyed SHA-256 hashing also require a new login.
 
 | Variable           | Default                                           | Purpose                                                                            |
 | ------------------ | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -47,48 +54,51 @@ No model API key is needed.
 
 Open [Scalar](http://127.0.0.1:3000/docs) to browse and try requests. The generated
 OpenAPI 3.1 document is at [`/openapi.json`](http://127.0.0.1:3000/openapi.json).
-Operations are grouped under Events, Reservations and Notifications, with request
-and response examples, constraints and error responses. For personal endpoints,
-set `X-User-Id` through Scalar's authentication control using a seeded demo user.
+Operations are grouped under Identity, Events, Reservations and Notifications.
+First call `POST /user/auth` with `{ "userId": "01900000-0000-7000-8000-000000000001" }`.
+Copy the returned `token` into Scalar's Bearer authentication control, without
+adding the `Bearer` prefix. Personal endpoints require this session.
+`DELETE /user/auth` revokes the current session and returns `204`.
+Sessions expire after 24 hours. Unknown, expired and revoked tokens return `401`.
 
-Route files own their operation documentation. The helpers in
+Each route file documents its operations. The helpers in
 `src/infrastructure/http/openapi.ts` reuse Valibot schemas and infer JSON example
-types from them. `documentRoute` supplies shared errors and demo identity metadata;
-`jsonBody`, `jsonResponse` and `parameter` handle the common OpenAPI structure.
-The existing request validation still runs unchanged. Checks that JSON Schema
-cannot express, such as future dates and a non-empty patch, are described in the
-operation text and enforced by the existing validators and application code.
+types from them. `documentRoute` adds shared error responses and session requirements.
+`jsonBody`, `jsonResponse` and `parameter` build the OpenAPI descriptions.
+Validators and application code check rules that JSON Schema cannot express,
+such as future dates and a non-empty patch. The operation descriptions explain
+these rules too.
 
 ### HATEOAS for events and reservations
 
-Event and reservation responses keep their existing fields and add `_links`.
+Event and reservation responses include `_links` alongside their data fields.
 Each link has a relative `href` and an HTTP `method`. This is an `application/json`
-convention, not HAL. Lists remain arrays of resources, not new envelopes.
+convention, not HAL. Lists return arrays of resources without a wrapper object.
 
-| Response | Available links |
-| --- | --- |
-| Future event, anonymous | `self`, `collection`, `update` |
-| Future event, known `X-User-Id` | Also `reserve` and `reservations` |
-| Started event | No `update` or `reserve`; known users still get `reservations` |
-| Active reservation, owner | `event`, `collection`, `cancel` |
-| Cancelled reservation, owner | `event`, `collection`, no `cancel` |
+| Response                           | Available links                                                |
+| ---------------------------------- | -------------------------------------------------------------- |
+| Future event, anonymous            | `self`, `collection`, `update`                                 |
+| Future event, valid bearer session | Also `reserve` and `reservations`                              |
+| Started event                      | No `update` or `reserve`; known users still get `reservations` |
+| Active reservation, owner          | `event`, `collection`, `cancel`                                |
+| Cancelled reservation, owner       | `event`, `collection`, no `cancel`                             |
 
-Create and update remain public in this demo. Supplying an identity is optional
-on event reads and writes, but a malformed supplied ID returns `400` and an
-unknown user returns `401`. Personalized event responses use
-`Vary: X-User-Id` and `Cache-Control: private, no-store`.
+Anyone can create or update events in this demo. Event reads and writes accept
+requests without a session, but reject malformed, unknown, expired or revoked
+bearer tokens with `401`. Personalized event responses use
+`Vary: Authorization` and `Cache-Control: private, no-store`.
 
 In Scalar, select the anonymous, authenticated or started-event response example
 on `GET /events/{eventId}`. To see the difference at runtime, request an event
-without a header, then with a seeded user's `X-User-Id`. Follow `reserve` with
+without a header, then with a user's bearer session. Follow `reserve` with
 `{ "quantity": 1 }`, then the returned reservation's `cancel` link. The cancelled
 response no longer advertises cancellation. Reservation routes still check the
 owner, and reservation commands still check capacity. A link is not a guarantee
 that a later request will succeed.
 
 The schemas and presenters in `src/features/events/presentation/resources.ts`
-own these relations. Domain objects and the underlying DTOs do not carry links.
-Notification responses are unchanged.
+define these links. Domain objects and the underlying DTOs do not carry links.
+Notification responses do not include them.
 
 ## REST endpoints
 
@@ -99,10 +109,10 @@ Notification responses are unchanged.
 | `GET /events/{eventId}`                           | Event ID in the path                                   | Read one event.                                                                             |
 | `PATCH /events/{eventId}`                         | Non-empty partial event body                           | Update an event without reducing capacity below its active reservations.                    |
 | `POST /events/{eventId}/reservations`             | `quantity`                                             | Reserve seats while checking remaining capacity.                                            |
-| `GET /me/reservations`                            | `X-User-Id` header                                     | List the current demo user's reservations.                                                  |
-| `POST /reservations/{reservationId}/cancellation` | Reservation ID and `X-User-Id` header                  | Cancel a reservation owned by the current demo user.                                        |
+| `GET /me/reservations`                            | Bearer session                                         | List the current demo user's reservations.                                                  |
+| `POST /reservations/{reservationId}/cancellation` | Reservation ID and bearer session                      | Cancel a reservation owned by the current demo user.                                        |
 
-Notifications exposes its own endpoints, also using the demo `X-User-Id` header:
+Notifications exposes its own endpoints, using the same bearer session:
 
 | Endpoint                                       | Input                       | Behavior                                                             |
 | ---------------------------------------------- | --------------------------- | -------------------------------------------------------------------- |
@@ -114,22 +124,30 @@ Notifications exposes its own endpoints, also using the demo `X-User-Id` header:
 These operations return `200`. Unknown or unenrolled recipients receive `401`.
 Another recipient's notification is hidden with `404`.
 
-To demonstrate the context boundary with the seeded event:
+To demonstrate the context boundary with the seeded event, create a session first.
+Anyone who knows a user UUID can obtain a token. The demo does not verify identity.
 
 ```sh
+curl -s http://127.0.0.1:3000/user/auth \
+  -H 'Content-Type: application/json' \
+  -d '{ "userId": "01900000-0000-7000-8000-000000000001" }'
+
+# Paste the response's token here.
+TOKEN='PASTE_TOKEN_HERE'
+
 # Events owns the reservation.
 curl -s http://127.0.0.1:3000/events/01900000-0000-7000-8000-000000000004/reservations \
-  -H 'X-User-Id: 01900000-0000-7000-8000-000000000001' \
+  -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{ "quantity": 1 }'
 
 # Notifications owns the resulting inbox item. Its response is not a reservation DTO.
 curl -s http://127.0.0.1:3000/me/notifications \
-  -H 'X-User-Id: 01900000-0000-7000-8000-000000000001'
+  -H "Authorization: Bearer $TOKEN"
 
 # Opt out here, then repeat the reservation request. The booking still succeeds,
 # but Notifications does not add another inbox item.
 curl -s -X PATCH http://127.0.0.1:3000/me/notification-preferences \
-  -H 'X-User-Id: 01900000-0000-7000-8000-000000000001' \
+  -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{ "inboxEnabled": false }'
 ```
 
@@ -143,10 +161,14 @@ must start in the future. Capacity and reservation quantity must be positive
 Cancellation records a timestamp instead of deleting the reservation. It is
 allowed after the event starts, but cannot be repeated.
 
-Reservation operations require `X-User-Id`, using one of the seeded user IDs below.
-This header is a demo identity mechanism, not authentication. Anyone can
-impersonate a seeded user. Event creation and editing are public for this lesson.
-Add authentication, organizer permissions and rate limits before deploying it.
+Reservation operations require `Authorization: Bearer <token>`.
+Create a session with a seeded user UUID at `POST /user/auth`. Anyone can
+impersonate a known user this way. The server generates random tokens and stores
+only their HMAC-SHA-256 hashes, keyed by `APPLICATION_SECRET_KEY`. Each session can be revoked separately.
+`X-User-Id` no longer authenticates requests. Event creation and editing remain
+public. Add real identity verification, organizer permissions and rate limits
+before deploying.
+
 Writes are not idempotent, so do not automatically retry a timed-out reservation.
 
 ## Architecture
@@ -180,8 +202,8 @@ messages reload current state rather than overwriting it with old payloads.
 Startup rebuilds the projection before accepting traffic, including seeded events.
 Tests and embedded callers can omit `readRepository` to use one repository.
 
-This is a single-process lesson implementation. It scans and replaces the full
-event list, not an indexed large-data read store. The bus currently awaits its
+This lesson runs in one process. Each refresh scans and replaces the full
+event list, so it is not suitable for large datasets. The bus currently awaits its
 subscribers, but projection writes are separate from the authoritative commit.
 Subscriber failures are logged and do not roll back commands. A subsequent event
 refresh or application restart repairs the snapshot. There is no durable retry,
@@ -194,13 +216,11 @@ Notifications already has its own PostgreSQL inbox read model. Each row in
 creation time and read state. The `(recipient_id, created_at, id)` index supports
 owner-scoped retrieval in display order without joining Events tables. The
 subscriber records message deduplication and the inbox item in one transaction.
-No additional inbox table or migration is needed.
 
-The top-level feature folders name the business capabilities. This is screaming
-architecture: open `src/features` and you see Events and Notifications rather
-than a list of technical layers. Each feature keeps its own technical layers.
-The [bounded-context guide](src/features/bounded-contexts.md) explains why this
-split also requires separate models and explicit contracts, not just new folders.
+The folders in `src/features` group code by business capability. Identity,
+Events and Notifications each contain their own application code and adapters.
+The [bounded-context guide](src/features/bounded-contexts.md) explains their
+separate models and the contracts they use to communicate.
 
 Events publishes `EventCreated`, `EventUpdated`, `EventReserved` and
 `ReservationCancelled` through [its contract](src/features/events/contracts/events.ts).
@@ -210,19 +230,19 @@ facts are logged but do not produce inbox items. The Notifications subscriber
 never loads an Events entity or calls its repository. The separate read-model
 subscriber belongs to Events and only updates its own Valkey projection.
 
-The same person has different models in the two contexts:
+Events and Notifications model the same person differently:
 
 | Events                                                  | Notifications                                                 |
 | ------------------------------------------------------- | ------------------------------------------------------------- |
-| `UserId`, name, email, reservations                     | Recipient ID, opaque booking-user reference, inbox preference |
+| `UserId`, reservations                                  | Recipient ID, opaque booking-user reference, inbox preference |
 | Reservation with quantity, event and cancellation state | Notification with subject, body and read timestamp            |
 | Capacity and booking ownership rules                    | Opt-out, duplicate suppression and inbox ownership rules      |
 
 Recipients have their own IDs. Alice's recipient ID ends in `0101`, while her
-booking user ID ends in `0001`. The reference connects identities, not database
-models. It is text, has no cross-context foreign key and cannot be used to join
-through a Notifications repository. Notifications needs neither a user's name
-nor their email for this in-app inbox. Recipients are enrolled separately by demo
+booking user ID ends in `0001`. Notifications stores the booking user ID as text,
+without a foreign key to Events. Its repository cannot use that reference to load
+an Events user. Notifications needs neither a user's name nor their email for
+this in-app inbox. Recipients are enrolled separately by demo
 seed data. Unknown recipients are ignored, not fetched from Events.
 
 Notification delivery records a source message ID atomically with an inbox item.
@@ -232,9 +252,9 @@ Marking an item read preserves the first read timestamp and is scoped to its own
 
 The bus awaits subscribers and isolates their failures, but it is not durable.
 Booking commits before publication. A process crash or failed subscriber can lose
-a notification. This lesson does not claim reliable delivery or exactly-once
-processing. An outbox, durable broker and retry/dead-letter policy are the next
-steps for production.
+a notification. The bus does not guarantee delivery or exactly-once processing.
+For production, add an outbox, a durable broker, retries and a policy for messages
+that keep failing.
 
 - Routes define endpoints and validate incoming requests.
 - Controllers translate HTTP requests into application calls and format responses.
@@ -251,6 +271,10 @@ src/
   composition-root.ts   Wiring and event subscription
   app.ts                Hono application setup
   features/
+    identity/
+      application/      Session creation, lookup, revocation and repository port
+      infrastructure/   In-memory and PostgreSQL identity repositories
+      routes/           Session endpoints and bearer-token middleware
     events/
       contracts/        Published event facts, no domain-entity imports
       application/      Booking commands, queries, identity and ports
@@ -271,7 +295,8 @@ src/
     di/                 Generic container and composition tokens
     messaging/          In-process event bus
     http/               Shared HttpStatusCode enum
-sql/init.sql            Both PostgreSQL schemas and independent seed data
+sql/init.sql            Three PostgreSQL schemas and seed data
+sql/migrate-identity-sessions.sql  Splits login accounts from booking profiles
 sql/migrate-bounded-contexts.sql  Moves existing public tables to events
 ```
 
@@ -345,15 +370,20 @@ backend.
 
 ## Database structure
 
-One PostgreSQL database contains two schemas. The three Events PostgreSQL adapters
-all query `events.*`. Notifications always uses PostgreSQL, including when Events
+One PostgreSQL database contains three schemas. Identity owns `identity.users`
+with name and email, and `identity.sessions` with token hash, user ID, creation,
+expiration and revocation timestamps. Events stores booking profiles in
+`events.users`. Each profile's primary key references `identity.users.id`, so
+existing booking IDs do not change. Reservations reference the booking profile,
+not the session or credentials. The three Events PostgreSQL adapters query
+`events.*`. Notifications always uses PostgreSQL, including when Events
 uses Valkey. Switching the Events backend does not move or reset the inbox.
 
 `sql/init.sql` creates four tables in the `events` schema:
 
 | Table          | Columns and role                                                                                                           |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `users`        | `id`, `name`, unique `email`. Users who can reserve seats.                                                                 |
+| `users`        | `id`, referencing `identity.users.id`. Booking-specific user profile.                                                      |
 | `venues`       | `id`, `name`, `address`. Locations that host events.                                                                       |
 | `events`       | `id`, `title`, `category`, `starts_at`, `capacity`, `venue_id`. Each event belongs to a venue.                             |
 | `reservations` | `id`, `event_id`, `user_id`, `quantity`, `created_at`, nullable `cancelled_at`. Each reservation links a user to an event. |
@@ -363,10 +393,12 @@ venues 1 ---- * events 1 ---- * reservations * ---- 1 users
 ```
 
 Notifications owns `notifications.recipients`, `notifications.inbox` and
-`notifications.processed_messages`. Only context-local foreign keys exist.
+`notifications.processed_messages`. Its foreign keys stay within the context.
+The Events booking-user key references Identity's user key.
 `booking_user_ref` and `booking_ref` are opaque text references to external facts,
-not foreign keys to Events. Schema separation expresses ownership, not database
-permission isolation: this local demo uses one PostgreSQL role for both contexts.
+not foreign keys to Events. Separate schemas show which context owns each table.
+They do not restrict database access. This demo uses one PostgreSQL role for all
+three contexts.
 
 All primary IDs are UUIDs. The domain requires lowercase UUID v7 identifiers. Foreign keys
 connect events to venues and reservations to events and users. SQL constraints
@@ -409,6 +441,23 @@ docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U events -d events < sq
 The migration moves tables with their data and foreign keys. It aborts rather than
 merging if both schemas already contain the same table. Notifications seed data
 is independent; rerunning `init.sql` does not overwrite existing preferences.
+
+### Migrate existing users and add sessions
+
+For a database already using the `events` schema, stop the API and back up first:
+
+```sh
+./scripts/backup.sh
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U events -d events < sql/migrate-identity-sessions.sql
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U events -d events < sql/init.sql
+bun run dev
+```
+
+The migration moves the existing user table into Identity and creates booking
+profiles with the same IDs. It updates reservation foreign keys without deleting
+records. Rerunning it leaves migrated records intact. For older `public` tables,
+run the UUID and bounded-context migrations first. Fresh volumes need only
+`init.sql`.
 
 ### Back up and restore PostgreSQL
 

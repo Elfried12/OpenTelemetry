@@ -7,24 +7,44 @@ import {
   httpFailure,
   httpResult,
 } from '#/features/events/controllers/http-result.ts'
-import { presentEventResource } from '#/features/events/presentation/resources.ts'
+import {
+  presentEventResource,
+  presentReservationResource,
+} from '#/features/events/presentation/resources.ts'
+import type { ListReservationsUseCase } from '#/features/events/application/queries/list-reservations.ts'
+import { Option } from '#/shared-kernel/option.ts'
 import type { DemoIdentity } from '#/features/events/application/demo-identity.ts'
 import type { Clock } from '#/features/events/application/ports.ts'
-import { requestViewer } from '#/features/events/request.ts'
+import { requestViewer, requestUser } from '#/features/events/request.ts'
 import { Result } from '#/shared-kernel/result.ts'
 
 export function createEventQueryController({
   list,
   get,
+  reservationsFor,
   identity,
   clock,
 }: {
   list: ListEventsUseCase
   get: GetEventUseCase
+  reservationsFor: ListReservationsUseCase
   identity: DemoIdentity
   clock: Clock
 }) {
   return {
+    reservations: async (context: Context) => {
+      const user = await requestUser(
+        identity,
+        Option.fromNullable(
+          context.get('identityUserId') as string | undefined,
+        ),
+      )
+      if (Result.isFailure(user)) {
+        return httpFailure(context, user.error)
+      }
+      const reservations = await reservationsFor.execute(user.value)
+      return context.json(reservations.map(presentReservationResource))
+    },
     list: async (context: Context, query: EventFilter) => {
       const viewer = await requestViewer(context, identity)
       if (Result.isFailure(viewer)) {

@@ -24,6 +24,7 @@ let url: string
 
 beforeAll(() => {
   const container = createContainer({
+    applicationSecretKey: 'test-application-secret-key-not-for-production',
     repository,
     clock: { now: () => new Date('2030-01-01T00:00:00Z') },
     notificationLogger: { log: () => {} },
@@ -42,11 +43,22 @@ async function http(
   body?: unknown,
   userId?: string,
 ) {
+  let auth: Record<string, string> = {}
+  if (userId) {
+    const login = await fetch(`${url}/user/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    })
+    expect(login.status).toBe(201)
+    const session = (await login.json()) as { token: string }
+    auth = { Authorization: `Bearer ${session.token}` }
+  }
   const response = await fetch(`${url}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      ...(userId ? { 'X-User-Id': userId } : {}),
+      ...auth,
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   })

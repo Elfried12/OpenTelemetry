@@ -37,7 +37,10 @@ export function createEventCommandController({
   cancel: CancelReservationUseCase
 }) {
   const currentUser = (context: Context) =>
-    requestUser(identity, Option.fromNullable(context.req.header('X-User-Id')))
+    requestUser(
+      identity,
+      Option.fromNullable(context.get('identityUserId') as string | undefined),
+    )
   return {
     create: async (context: Context, input: EventInput) => {
       const viewer = await requestViewer(context, identity)

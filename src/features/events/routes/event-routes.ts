@@ -59,7 +59,7 @@ export function eventRoutes(
       operationId: 'listEvents',
       summary: 'List events',
       description:
-        'Optional filters can be combined. Returns an empty array when no events match. There is no pagination. Each event includes _links. A known X-User-Id adds reserve for future events and reservations for the current user. An invalid supplied identity is rejected, not treated as anonymous.',
+        'Optional filters can be combined. Returns an empty array when no events match. There is no pagination. Each event includes _links. A valid bearer session adds reserve for future events and reservations for the current user. An invalid supplied identity is rejected, not treated as anonymous.',
       identity: 'optional',
       parameters: [
         parameter(
@@ -115,7 +115,7 @@ export function eventRoutes(
           ...jsonResponse(
             eventResourceSchema,
             eventExample,
-            'Event created with links. A known X-User-Id also adds reserve and reservations.',
+            'Event created with links. A valid bearer session also adds reserve and reservations.',
           ),
           headers: {
             Location: {
@@ -142,7 +142,7 @@ export function eventRoutes(
       summary: 'Get an event',
       identity: 'optional',
       description:
-        'Anonymous visitors receive self, collection and, before the event starts, update links. A known X-User-Id also adds reserve before the start and reservations. Invalid supplied identities return 400 or 401. Links do not guarantee available seats; the reservation command rechecks capacity.',
+        'Anonymous visitors receive self, collection and, before the event starts, update links. A valid bearer session also adds reserve before the start and reservations. Invalid supplied identities return 400 or 401. Links do not guarantee available seats; the reservation command rechecks capacity.',
       parameters: [eventId],
       errors: [400, 404],
       responses: {
@@ -264,6 +264,33 @@ export function eventRoutes(
       }
       return commands.cancel(c, id.value)
     },
+  )
+  routes.get(
+    '/me/reservations',
+    documentRoute('Reservations', {
+      operationId: 'listMyReservations',
+      summary: 'List my reservations',
+      description:
+        'Returns active and cancelled reservations for the authenticated booking user. Only active reservations include a cancel action.',
+      identity: 'required',
+      responses: {
+        200: jsonResponseExamples(
+          v.array(reservationResourceSchema),
+          {
+            active: {
+              summary: 'Active reservation',
+              value: [reservationExample],
+            },
+            cancelled: {
+              summary: 'Cancelled reservation',
+              value: [cancelledReservationExample],
+            },
+          },
+          'Your reservations',
+        ),
+      },
+    }),
+    (c) => queries.reservations(c),
   )
   return routes
 }

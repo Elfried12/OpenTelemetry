@@ -11,7 +11,7 @@ import * as v from 'valibot'
 
 import { errorDtoSchema } from '#/infrastructure/http/dtos.ts'
 
-// InferInput keeps JSON examples on the wire side of Date/brand transforms.
+// InferInput types examples as JSON values before Date and branded-type transforms.
 export function jsonContent<Schema extends v.GenericSchema>(
   schema: Schema,
   example: v.InferInput<Schema>,
@@ -78,16 +78,20 @@ export function parameter<Schema extends v.GenericSchema>(
 
 const failures = {
   400: ['INVALID_INPUT', 'Request does not satisfy the input constraints'],
-  401: ['UNAUTHORIZED', 'A known X-User-Id is required for this demo'],
+  401: ['UNAUTHORIZED', 'A valid bearer session is required'],
   404: ['NOT_FOUND', 'Resource not found'],
   409: ['CONFLICT', 'The operation conflicts with the current state'],
   500: ['INTERNAL_ERROR', 'An unexpected error occurred'],
 } as const
 
 type FailureStatus = keyof typeof failures
-export type FeatureTag = 'Events' | 'Reservations' | 'Notifications'
+export type FeatureTag =
+  | 'Events'
+  | 'Reservations'
+  | 'Notifications'
+  | 'Identity'
 
-// Keep shared errors, JSON media types and demo identity in one place.
+// Add shared JSON error responses and bearer-session requirements to each operation.
 export function documentRoute(
   tag: FeatureTag,
   options: Omit<DescribeRouteOptions, 'tags' | 'security'> & {
@@ -103,7 +107,7 @@ export function documentRoute(
     security.push({})
   }
   if (identity) {
-    security.push({ DemoUser: [] })
+    security.push({ BearerSession: [] })
   }
   const responses: NonNullable<DescribeRouteOptions['responses']> = {}
   for (const status of new Set<FailureStatus>([
@@ -136,9 +140,10 @@ export function documentationRoutes(app: Hono) {
           title: 'Events and notifications API',
           version: '1.0.0',
           description:
-            'Create events, reserve seats and manage a notification inbox. Identifiers are lowercase UUID v7 values. Dates use ISO 8601 with a timezone. X-User-Id selects a seeded demo user; it is not production authentication.',
+            'Create events, reserve seats and manage a notification inbox. Identifiers are lowercase UUID v7 values. Dates use ISO 8601 with a timezone. Call POST /user/auth with a seeded userId, then use the returned bearer token. This is fake authentication, not proof of identity.',
         },
         tags: [
+          { name: 'Identity', description: 'Create and revoke demo sessions.' },
           { name: 'Events', description: 'Browse, create and update events.' },
           {
             name: 'Reservations',
@@ -152,12 +157,11 @@ export function documentationRoutes(app: Hono) {
         ],
         components: {
           securitySchemes: {
-            DemoUser: {
-              type: 'apiKey',
-              in: 'header',
-              name: 'X-User-Id',
+            BearerSession: {
+              type: 'http',
+              scheme: 'bearer',
               description:
-                'Known demo user UUID v7. Example: 01900000-0000-7000-8000-000000000001. Not a secret or a production credential.',
+                'Create a session with POST /user/auth using userId 01900000-0000-7000-8000-000000000001. Paste only the returned token here, without the Bearer prefix. Fake authentication for local demos only.',
             },
           },
         },

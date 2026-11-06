@@ -1,10 +1,11 @@
 BEGIN;
 
 CREATE SCHEMA IF NOT EXISTS events;
+CREATE SCHEMA IF NOT EXISTS identity;
 CREATE SCHEMA IF NOT EXISTS notifications;
 SET LOCAL search_path TO events;
 
--- Context-local foreign keys only. No reference to events.users.
+-- Notifications has no foreign keys to Events.
 CREATE TABLE IF NOT EXISTS notifications.recipients (
   id uuid PRIMARY KEY,
   booking_user_ref text NOT NULL UNIQUE,
@@ -33,10 +34,25 @@ INSERT INTO notifications.recipients (id, booking_user_ref) VALUES
   ('01900000-0000-7000-8000-000000000102', '01900000-0000-7000-8000-000000000002')
 ON CONFLICT DO NOTHING;
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS identity.users (
   id uuid PRIMARY KEY,
   name text NOT NULL,
   email text NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS identity.sessions (
+  token_hash text PRIMARY KEY CHECK (token_hash ~ '^[0-9a-f]{64}$'),
+  user_id uuid NOT NULL REFERENCES identity.users(id),
+  created_at timestamptz NOT NULL,
+  expires_at timestamptz NOT NULL,
+  revoked_at timestamptz,
+  CHECK (expires_at > created_at)
+);
+CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON identity.sessions(user_id);
+
+-- Each booking profile uses its Identity account's ID.
+CREATE TABLE IF NOT EXISTS users (
+  id uuid PRIMARY KEY REFERENCES identity.users(id)
 );
 
 CREATE TABLE IF NOT EXISTS venues (
@@ -67,10 +83,11 @@ CREATE TABLE IF NOT EXISTS reservations (
 CREATE INDEX IF NOT EXISTS reservations_event_id_idx ON reservations(event_id);
 CREATE INDEX IF NOT EXISTS reservations_user_id_idx ON reservations(user_id);
 
-INSERT INTO users (id, name, email) VALUES
+INSERT INTO identity.users (id, name, email) VALUES
   ('01900000-0000-7000-8000-000000000001', 'Alice', 'alice@example.com'),
   ('01900000-0000-7000-8000-000000000002', 'Bob', 'bob@example.com')
 ON CONFLICT DO NOTHING;
+INSERT INTO users (id) SELECT id FROM identity.users ON CONFLICT DO NOTHING;
 INSERT INTO venues (id, name, address) VALUES
   ('01900000-0000-7000-8000-000000000003', 'Game room', '12 rue du Jeu, Paris')
 ON CONFLICT DO NOTHING;

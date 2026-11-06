@@ -66,7 +66,7 @@ class InheritanceEventBus<Event extends object> {
 }
 
 abstract class DomainEvent {
-  constructor(readonly eventId: string) { }
+  constructor(readonly eventId: string) {}
 }
 
 class EventCreated extends DomainEvent {
@@ -112,10 +112,10 @@ describe('inheritance event bus demo', () => {
 
   test('notifies exact-type and ancestor subscribers, but not unrelated subscribers', async () => {
     const bus = new InheritanceEventBus<DomainEvent>()
-    const allEvents = mock((_event: DomainEvent) => { })
-    const creations = mock((_event: EventCreated) => { })
-    const onlineCreations = mock((_event: OnlineEventCreated) => { })
-    const reservations = mock((_event: EventReserved) => { })
+    const allEvents = mock((_event: DomainEvent) => {})
+    const creations = mock((_event: EventCreated) => {})
+    const onlineCreations = mock((_event: OnlineEventCreated) => {})
+    const reservations = mock((_event: EventReserved) => {})
     bus.subscribe(DomainEvent, allEvents)
     bus.subscribe(EventCreated, creations)
     bus.subscribe(OnlineEventCreated, onlineCreations)
@@ -137,7 +137,7 @@ describe('inheritance event bus demo', () => {
 
   test('does not notify a derived-type subscriber about a base instance', async () => {
     const bus = new InheritanceEventBus<DomainEvent>()
-    const onlineCreations = mock((_event: OnlineEventCreated) => { })
+    const onlineCreations = mock((_event: OnlineEventCreated) => {})
     bus.subscribe(OnlineEventCreated, onlineCreations)
 
     await bus.publish(new EventCreated('event-1', 'In-person workshop'))
@@ -146,7 +146,7 @@ describe('inheritance event bus demo', () => {
 
   test('does not treat a structurally compatible plain object as a class instance', async () => {
     const bus = new InheritanceEventBus<DomainEvent>()
-    const creations = mock((_event: EventCreated) => { })
+    const creations = mock((_event: EventCreated) => {})
     bus.subscribe(EventCreated, creations)
 
     // TypeScript accepts the shape, but runtime inheritance requires prototypes.
@@ -157,7 +157,7 @@ describe('inheritance event bus demo', () => {
 
   test('an old unsubscribe cannot remove a replacement subscription bucket', async () => {
     const bus = new InheritanceEventBus<DomainEvent>()
-    const listener = mock((_event: EventCreated) => { })
+    const listener = mock((_event: EventCreated) => {})
     const unsubscribe = bus.subscribe(EventCreated, listener)
     unsubscribe()
     bus.subscribe(EventCreated, listener)

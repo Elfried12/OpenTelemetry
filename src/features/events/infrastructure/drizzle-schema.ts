@@ -5,8 +5,6 @@ const eventsSchema = pgSchema('events')
 // Query descriptions, not migrations. sql/init.sql owns constraints and indexes.
 export const users = eventsSchema.table('users', {
   id: uuid().primaryKey(),
-  name: text().notNull(),
-  email: text().notNull(),
 })
 
 export const venues = eventsSchema.table('venues', {

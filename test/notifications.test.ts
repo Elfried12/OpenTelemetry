@@ -1,4 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import * as v from 'valibot'
+import { sessionSchema } from '#/features/identity/routes/session-routes.ts'
+import { InMemoryIdentityRepository } from '#/features/identity/infrastructure/in-memory-identity-repository.ts'
 import { SQL } from 'bun'
 import { GenericContainer, Wait } from 'testcontainers'
 import { v7 } from 'uuid'
@@ -167,7 +170,11 @@ test('booking and cancellation reach the independent notification inbox through 
     { ...bob, bookingUserRef: fixture.bob },
   ]
   const container = createContainer({
+    applicationSecretKey: 'test-application-secret-key-not-for-production',
     repository: fixture.repository,
+    identityRepository: new InMemoryIdentityRepository(
+      new Set([fixture.alice, fixture.bob]),
+    ),
     notificationRepository: new InMemoryNotificationRepository(recipients),
     clock: { now: () => at },
     notificationLogger: { log() {} },
@@ -186,7 +193,15 @@ test('booking and cancellation reach the independent notification inbox through 
   await container
     .resolve(TOKEN.CancelReservationUseCase)
     .execute({ id: reservation.data.id, userId: fixture.alice })
-  const headers = { 'X-User-Id': fixture.alice }
+  const session = v.parse(
+    sessionSchema,
+    await container.resolve(TOKEN.SessionService).create(fixture.alice),
+  )
+  const headers = { Authorization: `Bearer ${session.token}` }
+  const bobsSession = v.parse(
+    sessionSchema,
+    await container.resolve(TOKEN.SessionService).create(fixture.bob),
+  )
   const response = await app.request('/me/notifications', { headers })
   expect(response.status).toBe(200)
   const inbox = (await response.json()) as { id: string; subject: string }[]
@@ -198,15 +213,15 @@ test('booking and cancellation reach the independent notification inbox through 
   expect(
     (
       await app.request('/me/notifications', {
-        headers: { 'X-User-Id': 'bad' },
+        headers: { Authorization: 'Bearer bad' },
       })
     ).status,
-  ).toBe(400)
+  ).toBe(401)
   expect(
     (
       await app.request(`/me/notifications/${inbox[0]!.id}/read`, {
         method: 'POST',
-        headers: { 'X-User-Id': fixture.bob },
+        headers: { Authorization: `Bearer ${bobsSession.token}` },
       })
     ).status,
   ).toBe(404)

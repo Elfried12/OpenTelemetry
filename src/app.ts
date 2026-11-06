@@ -4,19 +4,18 @@ import { HttpStatusCode } from '#/infrastructure/http/http-code.ts'
 import { HTTPException } from 'hono/http-exception'
 import type { EventCommandController } from '#/features/events/controllers/commands/event-controller.ts'
 import type { EventQueryController } from '#/features/events/controllers/queries/event-controller.ts'
-import type { UserQueryController } from '#/features/events/controllers/queries/user-controller.ts'
-import { userRoutes } from '#/features/events/routes/user-routes.ts'
+import type { MiddlewareHandler } from 'hono'
 import { eventRoutes } from '#/features/events/routes/event-routes.ts'
 import { presentError } from '#/features/events/presentation/event-presenter.ts'
 
 export function createApp(
   commands: EventCommandController,
   queries: EventQueryController,
-  users: UserQueryController,
+  authenticate: MiddlewareHandler,
 ) {
   const app = new Hono()
+  app.use('*', authenticate)
   eventRoutes(app, commands, queries)
-  userRoutes(app, users)
   documentationRoutes(app)
   app.notFound((c) =>
     c.json(

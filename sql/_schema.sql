@@ -1,14 +1,29 @@
 -- Current database schema without demo seed data.
--- Keep aligned with init.sql. Foreign keys stay within each bounded context.
+-- Keep aligned with init.sql. events.users references identity.users.
 BEGIN;
 
 CREATE SCHEMA IF NOT EXISTS events;
+CREATE SCHEMA IF NOT EXISTS identity;
 CREATE SCHEMA IF NOT EXISTS notifications;
 
-CREATE TABLE IF NOT EXISTS events.users (
+CREATE TABLE IF NOT EXISTS identity.users (
   id uuid PRIMARY KEY,
   name text NOT NULL,
   email text NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS identity.sessions (
+  token_hash text PRIMARY KEY CHECK (token_hash ~ '^[0-9a-f]{64}$'),
+  user_id uuid NOT NULL REFERENCES identity.users(id),
+  created_at timestamptz NOT NULL,
+  expires_at timestamptz NOT NULL,
+  revoked_at timestamptz,
+  CHECK (expires_at > created_at)
+);
+CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON identity.sessions(user_id);
+
+CREATE TABLE IF NOT EXISTS events.users (
+  id uuid PRIMARY KEY REFERENCES identity.users(id)
 );
 
 CREATE TABLE IF NOT EXISTS events.venues (
@@ -39,7 +54,7 @@ CREATE TABLE IF NOT EXISTS events.reservations (
 CREATE INDEX IF NOT EXISTS reservations_event_id_idx ON events.reservations(event_id);
 CREATE INDEX IF NOT EXISTS reservations_user_id_idx ON events.reservations(user_id);
 
--- These references are opaque to Notifications, not foreign keys to Events.
+-- Notifications stores booking references as text, without foreign keys to Events.
 CREATE TABLE IF NOT EXISTS notifications.recipients (
   id uuid PRIMARY KEY,
   booking_user_ref text NOT NULL UNIQUE,

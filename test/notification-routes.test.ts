@@ -1,4 +1,7 @@
 import { expect, test } from 'bun:test'
+import { SessionService } from '#/features/identity/application/session-service.ts'
+import { InMemoryIdentityRepository } from '#/features/identity/infrastructure/in-memory-identity-repository.ts'
+import { sessionMiddleware } from '#/features/identity/routes/session-middleware.ts'
 import { Hono } from 'hono'
 import { NotificationService } from '#/features/notifications/application/notification-service.ts'
 import { createNotificationCommandController } from '#/features/notifications/controllers/commands/notification-controller.ts'
@@ -14,26 +17,42 @@ const recipient = {
 }
 const at = new Date('2030-01-01T00:00:00Z')
 
-function fixture() {
+async function fixture() {
   const repository = new InMemoryNotificationRepository([recipient])
   const service = new NotificationService(
     repository,
     () => '01900000-0000-7000-8000-000000000201',
     () => at,
   )
+  const sessions = new SessionService(
+    new InMemoryIdentityRepository(
+      new Set([
+        recipient.bookingUserRef,
+        '01900000-0000-7000-8000-000000000099',
+      ]),
+    ),
+    'test-application-secret-key-not-for-production',
+  )
   const app = notificationRoutes(
-    new Hono(),
+    new Hono().use('*', sessionMiddleware(sessions)),
     createNotificationCommandController(service),
     createNotificationQueryController(service),
     createRecipientMiddleware(service),
   )
-  return { app, service }
+  const session = await sessions.create(recipient.bookingUserRef)
+  const unenrolled = await sessions.create(
+    '01900000-0000-7000-8000-000000000099',
+  )
+  return {
+    app,
+    service,
+    headers: { Authorization: `Bearer ${session!.token}` },
+    unenrolledHeaders: { Authorization: `Bearer ${unenrolled!.token}` },
+  }
 }
 
-const headers = { 'X-User-Id': recipient.bookingUserRef }
-
 test('notification endpoints identify the recipient before validating commands', async () => {
-  const { app } = fixture()
+  const { app, unenrolledHeaders } = await fixture()
   const paths = [
     { path: '/me/notifications', method: 'GET' },
     { path: '/me/notification-preferences', method: 'GET' },
@@ -44,16 +63,19 @@ test('notification endpoints identify the recipient before validating commands',
     const missing = await app.request(path, { method })
     expect(missing.status).toBe(401)
     expect(await missing.json()).toEqual({
-      error: { code: 'UNAUTHORIZED', message: 'X-User-Id is required' },
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'A valid bearer session is required',
+      },
     })
     const malformed = await app.request(path, {
       method,
-      headers: { 'X-User-Id': 'bad' },
+      headers: { Authorization: 'Bearer bad' },
     })
-    expect(malformed.status).toBe(400)
+    expect(malformed.status).toBe(401)
     const unenrolled = await app.request(path, {
       method,
-      headers: { 'X-User-Id': '01900000-0000-7000-8000-000000000099' },
+      headers: unenrolledHeaders,
     })
     expect(unenrolled.status).toBe(401)
     expect(await unenrolled.json()).toEqual({
@@ -63,7 +85,7 @@ test('notification endpoints identify the recipient before validating commands',
 })
 
 test('notification commands reject malformed JSON, invalid preferences and identifiers', async () => {
-  const { app } = fixture()
+  const { app, headers } = await fixture()
   for (const body of [
     '{',
     '{}',

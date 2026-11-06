@@ -23,7 +23,7 @@ test.each([Option.none<UserId>(), Option.some(UserId.make())])(
       .then((result) => {
         expect(result).toEqual(
           Result.fail(
-            new Unauthorized('A known X-User-Id is required for this demo'),
+            new Unauthorized('An authenticated booking user is required'),
           ),
         )
       }),
