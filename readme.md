@@ -1,4 +1,4 @@
-# Day 2: Events REST API
+# Events REST API
 
 A Hono API with Identity, Events and Notifications contexts. Identity owns fake
 login accounts and revocable sessions. Events manages seats and reservations.
@@ -77,7 +77,7 @@ these rules too.
 For the implementation choices, see
 [OpenAPI and living documentation](src/platform/http/openapi.md).
 It connects the schema and test setup to Cyrille Martraire's book
-*Living Documentation: Continuous Knowledge Sharing by Design*.
+_Living Documentation: Continuous Knowledge Sharing by Design_.
 
 ### HATEOAS for events and reservations
 

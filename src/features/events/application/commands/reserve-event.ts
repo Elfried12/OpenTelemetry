@@ -1,6 +1,5 @@
 import type { CommandHandler } from '#/shared-kernel/command-handler.ts'
 import type { ApplicationError } from '#/features/events/application/ports.ts'
-import type { EventBus } from '#/shared-kernel/event-bus.ts'
 import type { DomainEvent } from '#/features/events/contracts/events.ts'
 import type { EventEnvelope } from '#/shared-kernel/event-envelope.ts'
 import {
@@ -16,7 +15,7 @@ import { Option } from '#/shared-kernel/option.ts'
 import { Result } from '#/shared-kernel/result.ts'
 import type {
   Clock,
-  EventRepository,
+  EventsUnitOfWork,
   IdGenerator,
 } from '#/features/events/application/ports.ts'
 
@@ -31,16 +30,14 @@ export class ReserveEventUseCase implements CommandHandler<
   Result<Reservation, ApplicationError>
 > {
   constructor(
-    private readonly repository: EventRepository,
+    private readonly unitOfWork: EventsUnitOfWork,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
-    private readonly eventBus: EventBus<DomainEvent>,
   ) {}
 
   async execute(input: ReserveEventCommand) {
-    const result = await this.repository.reserve(
-      input.eventId,
-      (event, seats) => {
+    return this.unitOfWork.run(async ({ events, outbox }) => {
+      const result = await events.reserve(input.eventId, (event, seats) => {
         const now = this.clock.now()
         const checked = event.checkReservation(input.quantity, seats, now)
         if (Result.isFailure(checked)) {
@@ -54,13 +51,13 @@ export class ReserveEventUseCase implements CommandHandler<
             cancelledAt: Option.none(),
           }),
         )
-      },
-    )
-    if (Result.isSuccess(result)) {
-      const reservation = result.value.data
-      await this.eventBus.publish(this.envelope(reservation))
-    }
-    return result
+      })
+      if (Result.isSuccess(result)) {
+        const reservation = result.value.data
+        await outbox.append(this.envelope(reservation))
+      }
+      return result
+    })
   }
 
   private envelope(event: ReservationData): EventEnvelope<DomainEvent> {

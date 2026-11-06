@@ -13,6 +13,8 @@ export class InMemoryEventBus<
     Set<MessageListener<Event>>
   >()
 
+  constructor(private readonly propagateFailures = false) {}
+
   subscribe<Tag extends Event['_tag']>(
     tag: Tag,
     listener: MessageListener<Extract<Event, { _tag: Tag }>>,
@@ -50,10 +52,15 @@ export class InMemoryEventBus<
     const results = await Promise.allSettled(
       [...listeners].map(async (listener) => listener(message)),
     )
+    const failures: unknown[] = []
     for (const result of results) {
       if (result.status === 'rejected') {
         console.error('Event listener failed', result.reason)
+        failures.push(result.reason)
       }
+    }
+    if (this.propagateFailures && failures.length > 0) {
+      throw new AggregateError(failures, 'Event delivery failed')
     }
   }
 }

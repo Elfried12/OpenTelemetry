@@ -83,6 +83,14 @@ CREATE TABLE IF NOT EXISTS reservations (
 CREATE INDEX IF NOT EXISTS reservations_event_id_idx ON reservations(event_id);
 CREATE INDEX IF NOT EXISTS reservations_user_id_idx ON reservations(user_id);
 
+CREATE TABLE IF NOT EXISTS events.outbox (
+  sequence bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  message_id uuid NOT NULL UNIQUE,
+  envelope jsonb NOT NULL,
+  published_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS outbox_pending_idx ON events.outbox(sequence) WHERE published_at IS NULL;
+
 INSERT INTO identity.users (id, name, email) VALUES
   ('01900000-0000-7000-8000-000000000001', 'Alice', 'alice@example.com'),
   ('01900000-0000-7000-8000-000000000002', 'Bob', 'bob@example.com')

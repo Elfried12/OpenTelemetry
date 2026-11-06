@@ -1,3 +1,5 @@
+import { InMemoryEventRepository } from '#/features/events/infrastructure/repository/in-memory-event-repository.ts'
+import { OutboxDispatcher } from '#/features/events/application/outbox-dispatcher.ts'
 import type { MiddlewareHandler } from 'hono'
 import { Container } from '#/platform/di/container.ts'
 import { TOKEN } from '#/platform/di/tokens.ts'
@@ -12,6 +14,8 @@ import { ListReservationsUseCase } from '#/features/events/application/queries/l
 import { DemoIdentity } from '#/features/events/application/demo-identity.ts'
 import type {
   Clock,
+  EventsUnitOfWork,
+  OutboxStore,
   EventRepository,
   EventProjectionRepository,
   IdGenerator,
@@ -49,6 +53,8 @@ export interface ContainerOptions {
   applicationSecretKey: string
   rateLimitConfig?: RateLimitConfig
   repository: EventRepository
+  unitOfWork?: EventsUnitOfWork
+  outboxStore?: OutboxStore
   identityRepository?: IdentityRepository
   readRepository?: EventProjectionRepository
   clock?: Clock
@@ -63,6 +69,28 @@ export function createContainer(options: ContainerOptions): Container {
   const container = new Container()
   container
     .singleton(TOKEN.EventRepository, () => options.repository)
+    .singleton(TOKEN.EventsUnitOfWork, () => {
+      if (options.unitOfWork) {
+        return options.unitOfWork
+      }
+      if (options.repository instanceof InMemoryEventRepository) {
+        return options.repository
+      }
+      throw new Error(
+        'This command requires an EventsUnitOfWork; use the postgres adapter',
+      )
+    })
+    .singleton(TOKEN.OutboxDispatcher, (c) => {
+      const store =
+        options.outboxStore ??
+        (options.repository instanceof InMemoryEventRepository
+          ? options.repository
+          : undefined)
+      if (!store) {
+        throw new Error('An OutboxStore is required')
+      }
+      return new OutboxDispatcher(store, c.resolve(TOKEN.EventBus))
+    })
     .singleton(
       TOKEN.SessionService,
       (c) =>
@@ -89,7 +117,7 @@ export function createContainer(options: ContainerOptions): Container {
     .singleton(TOKEN.IdGenerator, () => options.ids ?? { next: makeId })
     .singleton(
       TOKEN.EventBus,
-      () => options.eventBus ?? new InMemoryEventBus<DomainEvent>(),
+      () => options.eventBus ?? new InMemoryEventBus<DomainEvent>(true),
     )
     .singleton(
       TOKEN.NotificationRepository,
@@ -132,40 +160,36 @@ export function createContainer(options: ContainerOptions): Container {
       TOKEN.CreateEventUseCase,
       (c) =>
         new CreateEventUseCase(
-          c.resolve(TOKEN.EventRepository),
+          c.resolve(TOKEN.EventsUnitOfWork),
           c.resolve(TOKEN.Clock),
           c.resolve(TOKEN.IdGenerator),
-          c.resolve(TOKEN.EventBus),
         ),
     )
     .singleton(
       TOKEN.UpdateEventUseCase,
       (c) =>
         new UpdateEventUseCase(
-          c.resolve(TOKEN.EventRepository),
+          c.resolve(TOKEN.EventsUnitOfWork),
           c.resolve(TOKEN.Clock),
           c.resolve(TOKEN.IdGenerator),
-          c.resolve(TOKEN.EventBus),
         ),
     )
     .singleton(
       TOKEN.ReserveEventUseCase,
       (c) =>
         new ReserveEventUseCase(
-          c.resolve(TOKEN.EventRepository),
+          c.resolve(TOKEN.EventsUnitOfWork),
           c.resolve(TOKEN.Clock),
           c.resolve(TOKEN.IdGenerator),
-          c.resolve(TOKEN.EventBus),
         ),
     )
     .singleton(
       TOKEN.CancelReservationUseCase,
       (c) =>
         new CancelReservationUseCase(
-          c.resolve(TOKEN.EventRepository),
+          c.resolve(TOKEN.EventsUnitOfWork),
           c.resolve(TOKEN.Clock),
           c.resolve(TOKEN.IdGenerator),
-          c.resolve(TOKEN.EventBus),
         ),
     )
     .singleton(

@@ -202,6 +202,7 @@ test('booking and cancellation reach the independent notification inbox through 
     sessionSchema,
     await container.resolve(TOKEN.SessionService).create(fixture.bob),
   )
+  await container.resolve(TOKEN.OutboxDispatcher).drain()
   const response = await app.request('/me/notifications', { headers })
   expect(response.status).toBe(200)
   const inbox = (await response.json()) as { id: string; subject: string }[]

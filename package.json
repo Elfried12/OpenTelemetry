@@ -13,6 +13,7 @@
     "test:application": "bun test ./test/application",
     "test:transports": "bun test ./test/transports.test.ts",
     "test:contract": "bun test ./test/event-repository.test.ts",
+    "outbox:drain": "bun scripts/drain-outbox.ts",
     "demo:export": "bun scripts/export-demo-requests.ts",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",

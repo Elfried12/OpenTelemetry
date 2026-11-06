@@ -1,6 +1,5 @@
 import type { CommandHandler } from '#/shared-kernel/command-handler.ts'
 import { Result } from '#/shared-kernel/result.ts'
-import type { EventBus } from '#/shared-kernel/event-bus.ts'
 import type { DomainEvent } from '#/features/events/contracts/events.ts'
 import type { EventEnvelope } from '#/shared-kernel/event-envelope.ts'
 import type {
@@ -10,7 +9,7 @@ import type {
 import type {
   ApplicationError,
   Clock,
-  EventRepository,
+  EventsUnitOfWork,
   IdGenerator,
 } from '#/features/events/application/ports.ts'
 import type { ReservationId, UserId } from '#/features/events/domain/ids.ts'
@@ -25,23 +24,22 @@ export class CancelReservationUseCase implements CommandHandler<
   Result<Reservation, ApplicationError>
 > {
   constructor(
-    private readonly repository: EventRepository,
+    private readonly unitOfWork: EventsUnitOfWork,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
-    private readonly eventBus: EventBus<DomainEvent>,
   ) {}
 
   async execute({ id, userId }: CancelReservationCommand) {
-    const result = await this.repository.cancelReservation(
-      id,
-      userId,
-      (reservation) => reservation.cancel(this.clock.now()),
-    )
-    if (Result.isSuccess(result)) {
-      const reservation = result.value.data
-      await this.eventBus.publish(this.envelope(reservation))
-    }
-    return result
+    return this.unitOfWork.run(async ({ events, outbox }) => {
+      const result = await events.cancelReservation(id, userId, (reservation) =>
+        reservation.cancel(this.clock.now()),
+      )
+      if (Result.isSuccess(result)) {
+        const reservation = result.value.data
+        await outbox.append(this.envelope(reservation))
+      }
+      return result
+    })
   }
 
   private envelope(reservation: ReservationData): EventEnvelope<DomainEvent> {

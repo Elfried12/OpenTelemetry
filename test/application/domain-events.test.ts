@@ -26,6 +26,8 @@ test('successful commands deliver domain facts inside event envelopes', async ()
     userId: app.alice,
   })
 
+  expect(app.notifications).toEqual([])
+  await app.drain()
   expect(app.notifications.map((envelope) => envelope.event._tag)).toEqual([
     'EventCreated',
     'EventUpdated',
@@ -84,6 +86,7 @@ test('failed use cases publish no success events', async () => {
     userId: app.alice,
   })
   await app.services.read.get.execute(EventId.make())
+  await app.drain()
   expect(app.notifications).toEqual([])
 })
 
@@ -98,6 +101,7 @@ test('successful reads publish nothing, including empty results', async () => {
     userId: app.alice,
     quantity: 1,
   })
+  await app.drain()
   app.notifications.length = 0
   const messages: unknown[] = []
   const bus = app.container.resolve(TOKEN.EventBus)
@@ -118,7 +122,7 @@ test('successful reads publish nothing, including empty results', async () => {
   expect(app.notifications).toEqual([])
 })
 
-test('publication follows persistence and awaits asynchronous subscribers', async () => {
+test('manual dispatch follows persistence and awaits asynchronous subscribers', async () => {
   const app = anApplication()
   let observed = false
   app.container
@@ -135,6 +139,8 @@ test('publication follows persistence and awaits asynchronous subscribers', asyn
       observed = true
     })
   await app.createEvent()
+  expect(observed).toBe(false)
+  await app.drain()
   expect(observed).toBe(true)
 })
 
@@ -157,6 +163,7 @@ test('retried reservation callbacks still publish only one committed envelope', 
   })
   expect(Result.isSuccess(result)).toBe(true)
   expect(attempts).toBe(2)
+  await app.drain()
   expect(app.notifications.map((envelope) => envelope.event._tag)).toEqual([
     'EventReserved',
   ])

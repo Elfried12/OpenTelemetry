@@ -1,6 +1,8 @@
+import type { OutboxDispatcher } from '#/features/events/application/outbox-dispatcher.ts'
 import type { Hono } from 'hono'
 import type {
   Clock,
+  EventsUnitOfWork,
   EventRepository,
   EventReadRepository,
   IdGenerator,
@@ -25,6 +27,8 @@ import type { EventBus, Unsubscribe } from '#/shared-kernel/event-bus.ts'
 import { createToken } from '#/platform/di/token.ts'
 
 export const TOKEN = {
+  EventsUnitOfWork: createToken<EventsUnitOfWork>('EventsUnitOfWork'),
+  OutboxDispatcher: createToken<OutboxDispatcher>('OutboxDispatcher'),
   EventRepository: createToken<EventRepository>('EventRepository'),
   EventReadRepository: createToken<EventReadRepository>('EventReadRepository'),
   EventReadModelSubscription: createToken<Unsubscribe>(

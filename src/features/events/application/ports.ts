@@ -11,6 +11,8 @@ import type {
   NotFound,
   Unauthorized,
 } from '#/features/events/domain/errors.ts'
+import type { DomainEvent } from '#/features/events/contracts/events.ts'
+import type { EventEnvelope } from '#/shared-kernel/event-envelope.ts'
 import type { Option } from '#/shared-kernel/option.ts'
 import type { Result } from '#/shared-kernel/result.ts'
 
@@ -55,6 +57,30 @@ export interface EventRepository extends EventReadRepository {
     change: (reservation: Reservation) => Result<Reservation, ApplicationError>,
   ): Promise<Result<Reservation, ApplicationError>>
   userExists(id: UserId): Promise<boolean>
+}
+
+// Success commits; Failure rolls back all earlier writes. Thrown infrastructure
+// errors roll back and propagate unchanged. Both dependencies share a transaction.
+// Do not publish events or perform external effects inside work.
+export interface EventsUnitOfWork {
+  run<Value>(
+    work: (scope: {
+      events: EventRepository
+      outbox: OutboxWriter
+    }) => Promise<Result<Value, ApplicationError>>,
+  ): Promise<Result<Value, ApplicationError>>
+}
+
+export interface OutboxWriter {
+  append(envelope: EventEnvelope<DomainEvent>): Promise<void>
+}
+
+// Atomically claim one pending message and acknowledge only after delivery.
+// A delivery rejection leaves the message pending for a later drain.
+export interface OutboxStore {
+  deliverNext(
+    deliver: (envelope: EventEnvelope<DomainEvent>) => Promise<void>,
+  ): Promise<boolean>
 }
 
 export interface Clock {

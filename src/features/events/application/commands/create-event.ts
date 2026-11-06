@@ -10,10 +10,9 @@ import { InvalidInput } from '#/features/events/domain/errors.ts'
 import { Result } from '#/shared-kernel/result.ts'
 import type {
   Clock,
-  EventRepository,
+  EventsUnitOfWork,
   IdGenerator,
 } from '#/features/events/application/ports.ts'
-import type { EventBus } from '#/shared-kernel/event-bus.ts'
 import type { DomainEvent } from '#/features/events/contracts/events.ts'
 import type { EventEnvelope } from '#/shared-kernel/event-envelope.ts'
 
@@ -22,11 +21,10 @@ export class CreateEventUseCase implements CommandHandler<
   Result<Event, ApplicationError>
 > {
   constructor(
-    private readonly repository: EventRepository,
+    private readonly unitOfWork: EventsUnitOfWork,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
-    private readonly eventBus: EventBus<DomainEvent>,
-  ) {}
+  ) { }
 
   async execute(input: EventInput) {
     const result = Event.create({ ...input, id: this.ids.next<EventId>() })
@@ -37,12 +35,14 @@ export class CreateEventUseCase implements CommandHandler<
     if (result.value.data.startsAt <= now) {
       return Result.fail(new InvalidInput('Event must start in the future'))
     }
-    const persisted = await this.repository.createEvent(result.value)
-    if (Result.isSuccess(persisted)) {
-      const success = persisted.value.data
-      await this.eventBus.publish(this.envelope(success))
-    }
-    return persisted
+    return this.unitOfWork.run(async ({ events, outbox }) => {
+      const persisted = await events.createEvent(result.value)
+      if (Result.isSuccess(persisted)) {
+        const success = persisted.value.data
+        await outbox.append(this.envelope(success))
+      }
+      return persisted
+    })
   }
 
   private envelope(event: EventData): EventEnvelope<DomainEvent> {

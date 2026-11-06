@@ -1,3 +1,5 @@
+import { PostgresEventsUnitOfWork } from './postgres-events-unit-of-work.ts'
+import { PostgresOutboxStore } from './postgres-outbox-store.ts'
 import { RedisClient, SQL } from 'bun'
 import { PostgresEventRepository } from '#/features/events/infrastructure/repository/postgres-event-repository.ts'
 import { ValkeyEventRepository } from '#/features/events/infrastructure/repository/valkey-event-repository.ts'
@@ -43,6 +45,8 @@ export function createPersistence(backend: string) {
     const sql = new SQL(databaseUrl)
     return {
       repository: new PostgresEventRepository(sql),
+      unitOfWork: new PostgresEventsUnitOfWork(sql),
+      outboxStore: new PostgresOutboxStore(sql),
       close: () => sql.close(),
     }
   }

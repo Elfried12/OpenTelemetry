@@ -46,6 +46,8 @@ const container = createContainer({
   applicationSecretKey,
   rateLimitConfig,
   repository: persistence.repository,
+  unitOfWork: persistence.unitOfWork,
+  outboxStore: persistence.outboxStore,
   identityRepository: new PostgresIdentityRepository(notificationSql),
   readRepository,
   notificationRepository: new PostgresNotificationRepository(notificationSql),

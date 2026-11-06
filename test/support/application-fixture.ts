@@ -59,6 +59,8 @@ export function anApplication() {
     repository,
     container,
     notifications,
+    drain: (limit?: number) =>
+      container.resolve(TOKEN.OutboxDispatcher).drain(limit),
     services,
     eventInput,
     async headersFor(userId: string) {
@@ -82,6 +84,7 @@ export function anApplication() {
 export async function anExistingEvent(patch: Partial<EventInput> = {}) {
   const application = anApplication()
   const event = await application.createEvent(patch)
+  await application.drain()
   return { ...application, event }
 }
 

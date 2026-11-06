@@ -50,6 +50,7 @@ test('event queries use Valkey while writes and seat checks use the authoritativ
       .resolve(TOKEN.CreateEventUseCase)
       .execute(fixture.eventInput),
   )
+  await container.resolve(TOKEN.OutboxDispatcher).drain()
   expect(
     Option.getOrNull(await projection.findEvent(event.data.id))?.data,
   ).toEqual(event.data)
@@ -58,6 +59,7 @@ test('event queries use Valkey while writes and seat checks use the authoritativ
       .resolve(TOKEN.UpdateEventUseCase)
       .execute({ id: event.data.id, patch: { title: 'Updated' } }),
   )
+  await container.resolve(TOKEN.OutboxDispatcher).drain()
   expect(
     Option.getOrNull(await projection.findEvent(event.data.id))?.data,
   ).toEqual(updated.data)

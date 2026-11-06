@@ -29,7 +29,17 @@ const reservationColumns =
   'id, event_id, user_id, quantity, created_at, cancelled_at'
 
 export class PostgresEventRepository implements EventRepository {
-  constructor(private readonly sql: SQL) {}
+  constructor(
+    private readonly sql: SQL,
+    private readonly transactionScoped = false,
+  ) {}
+
+  private transaction<Value>(
+    work: (tx: SQL) => Promise<Value>,
+  ): Promise<Value> {
+    // The Unit of Work owns BEGIN/COMMIT. Never open a second transaction.
+    return this.transactionScoped ? work(this.sql) : this.sql.begin(work)
+  }
 
   async listEvents(filter: EventFilter) {
     const rows = await this.sql<EventEntity[]>`
@@ -66,7 +76,7 @@ export class PostgresEventRepository implements EventRepository {
     ) => Result<Event, ApplicationError>,
   ): Promise<Result<Event, ApplicationError>> {
     return this.write(() =>
-      this.sql.begin(async (tx) => {
+      this.transaction(async (tx) => {
         const found = await this.lockEvent(tx, id)
         if (Option.isNone(found)) {
           return Result.fail(new NotFound('Event not found'))
@@ -91,7 +101,7 @@ export class PostgresEventRepository implements EventRepository {
     ) => Result<Reservation, ApplicationError>,
   ): Promise<Result<Reservation, ApplicationError>> {
     return this.write(() =>
-      this.sql.begin(async (tx) => {
+      this.transaction(async (tx) => {
         const found = await this.lockEvent(tx, eventId)
         if (Option.isNone(found)) {
           return Result.fail(new NotFound('Event not found'))
@@ -124,7 +134,7 @@ export class PostgresEventRepository implements EventRepository {
     userId: UserId,
     change: (reservation: Reservation) => Result<Reservation, ApplicationError>,
   ): Promise<Result<Reservation, ApplicationError>> {
-    return this.sql.begin(async (tx) => {
+    return this.transaction(async (tx) => {
       const rows = await tx.unsafe<Record<string, unknown>[]>(
         `SELECT ${reservationColumns} FROM events.reservations WHERE id = $1 AND user_id = $2 FOR UPDATE`,
         [id, userId],

@@ -2,6 +2,9 @@ import type {
   ApplicationError,
   EventFilter,
   EventRepository,
+  EventsUnitOfWork,
+  OutboxWriter,
+  OutboxStore,
 } from '#/features/events/application/ports.ts'
 import type { Event } from '#/features/events/domain/event.ts'
 import type { Reservation } from '#/features/events/domain/reservation.ts'
@@ -14,11 +17,76 @@ import type {
 import { InvalidInput, NotFound } from '#/features/events/domain/errors.ts'
 import { Option } from '#/shared-kernel/option.ts'
 import { Result } from '#/shared-kernel/result.ts'
+import type { DomainEvent } from '#/features/events/contracts/events.ts'
+import type { EventEnvelope } from '#/shared-kernel/event-envelope.ts'
 import { matchesEventFilter } from '#/features/events/infrastructure/repository/event-predicates.ts'
 
-export class InMemoryEventRepository implements EventRepository {
-  private readonly events = new Map<EventId, Event>()
-  private readonly reservations = new Map<ReservationId, Reservation>()
+export class InMemoryEventRepository
+  implements EventRepository, EventsUnitOfWork, OutboxStore
+{
+  private events = new Map<EventId, Event>()
+  private reservations = new Map<ReservationId, Reservation>()
+  private pending: EventEnvelope<DomainEvent>[] = []
+  private tail: Promise<unknown> = Promise.resolve()
+
+  private exclusive<Value>(work: () => Promise<Value>): Promise<Value> {
+    const task = this.tail.then(work)
+    this.tail = task.catch(() => {})
+    return task
+  }
+
+  run<Value>(
+    work: (scope: {
+      events: EventRepository
+      outbox: OutboxWriter
+    }) => Promise<Result<Value, ApplicationError>>,
+  ): Promise<Result<Value, ApplicationError>> {
+    return this.exclusive(async () => {
+      const events = new Map(this.events)
+      const reservations = new Map(this.reservations)
+      const pending = [...this.pending]
+      let committed = false
+      try {
+        const result = await work({
+          events: this,
+          outbox: {
+            append: async (envelope) => {
+              if (
+                this.pending.some(
+                  (message) => message.messageId === envelope.messageId,
+                )
+              ) {
+                throw new Error('Duplicate message ID')
+              }
+              this.pending.push(envelope)
+            },
+          },
+        })
+        committed = Result.isSuccess(result)
+        return result
+      } finally {
+        if (!committed) {
+          this.events = events
+          this.reservations = reservations
+          this.pending = pending
+        }
+      }
+    })
+  }
+
+  deliverNext(
+    deliver: (envelope: EventEnvelope<DomainEvent>) => Promise<void>,
+  ): Promise<boolean> {
+    return this.exclusive(async () => {
+      const message = this.pending[0]
+      if (!message) {
+        return false
+      }
+      await deliver(message)
+      this.pending.shift()
+      return true
+    })
+  }
 
   constructor(
     private readonly references: {

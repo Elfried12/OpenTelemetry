@@ -37,6 +37,7 @@ test('the mock logger receives the event name and payload through the shared bus
     },
   })
   await container.resolve(TOKEN.CreateEventUseCase).execute(fixture.eventInput)
+  await container.resolve(TOKEN.OutboxDispatcher).drain()
   expect(logs).toEqual([
     {
       message: '[notification] EventCreated',
@@ -59,10 +60,12 @@ test('resolving services repeatedly does not duplicate notifications and subscri
   app.container.resolve(TOKEN.App)
   app.container.resolve(TOKEN.CreateEventUseCase)
   await app.createEvent()
+  await app.drain()
   expect(app.notifications).toHaveLength(1)
   const unsubscribe = app.container.resolve(TOKEN.NotificationSubscription)
   unsubscribe()
   unsubscribe()
   await app.createEvent()
+  await app.drain()
   expect(app.notifications).toHaveLength(1)
 })
