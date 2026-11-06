@@ -6,27 +6,27 @@ import {
   slidingWindow,
   tokenBucket,
   leakyBucket,
-} from '#/infrastructure/rate-limit/bucket-strategies.ts'
-import type { BucketStrategy } from '#/infrastructure/rate-limit/ports.ts'
-import { InMemoryRateLimitRepository } from '#/infrastructure/rate-limit/in-memory-rate-limit-repository.ts'
+} from '#/platform/rate-limit/domain/bucket-strategies.ts'
+import type { BucketStrategy } from '#/platform/rate-limit/application/ports.ts'
+import { InMemoryRateLimitRepository } from '#/platform/rate-limit/infrastructure/in-memory-rate-limit-repository.ts'
 import {
   rateLimitMiddleware,
   rateLimitByIp,
   rateLimitByUserId,
   rateLimitBySession,
-} from '#/infrastructure/rate-limit/rate-limit-middleware.ts'
+} from '#/platform/rate-limit/http/rate-limit-middleware.ts'
 import { SessionService } from '#/features/identity/application/session-service.ts'
 import { InMemoryIdentityRepository } from '#/features/identity/infrastructure/in-memory-identity-repository.ts'
 import { sessionMiddleware } from '#/features/identity/routes/session-middleware.ts'
 import { createContainer } from '#/composition-root.ts'
-import { TOKEN } from '#/infrastructure/di/tokens.ts'
+import { TOKEN } from '#/platform/di/tokens.ts'
 import { Duration } from '#/shared-kernel/duration.ts'
 import {
   InvalidRateLimitConfiguration,
   RateLimitExceeded,
-} from '#/infrastructure/rate-limit/domain/errors.ts'
-import { RateLimiter } from '#/infrastructure/rate-limit/application/rate-limiter.ts'
-import { RateLimitUnavailable } from '#/infrastructure/rate-limit/application/errors.ts'
+} from '#/platform/rate-limit/domain/errors.ts'
+import { RateLimiter } from '#/platform/rate-limit/application/rate-limiter.ts'
+import { RateLimitUnavailable } from '#/platform/rate-limit/application/errors.ts'
 import { anApplication } from './support/application-fixture.ts'
 import { given } from './support/given.ts'
 

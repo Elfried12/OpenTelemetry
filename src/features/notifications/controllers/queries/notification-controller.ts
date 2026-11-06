@@ -1,7 +1,7 @@
 import type { Context } from 'hono'
 import type { NotificationService } from '#/features/notifications/application/notification-service.ts'
 import type { NotificationEnv } from '#/features/notifications/controllers/recipient.ts'
-import { HttpStatusCode } from '#/infrastructure/http/http-code.ts'
+import { HttpStatusCode } from '#/platform/http/http-code.ts'
 
 export function createNotificationQueryController(
   service: NotificationService,

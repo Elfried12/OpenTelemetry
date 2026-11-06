@@ -1,4 +1,4 @@
-import { HttpStatusCode } from '#/infrastructure/http/http-code.ts'
+import { HttpStatusCode } from '#/platform/http/http-code.ts'
 import type { ApplicationError } from '#/features/events/application/ports.ts'
 import {
   Conflict,

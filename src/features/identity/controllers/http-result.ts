@@ -1,6 +1,6 @@
 import type { Context } from 'hono'
 import type { Unauthorized } from '../domain/errors.ts'
-import { HttpStatusCode } from '#/infrastructure/http/http-code.ts'
+import { HttpStatusCode } from '#/platform/http/http-code.ts'
 
 export function httpFailure(context: Context, error: Unauthorized) {
   return context.json(

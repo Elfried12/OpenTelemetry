@@ -4,7 +4,7 @@ import {
   Unauthorized,
   NotFound,
 } from '#/features/notifications/domain/errors.ts'
-import { HttpStatusCode } from '#/infrastructure/http/http-code.ts'
+import { HttpStatusCode } from '#/platform/http/http-code.ts'
 
 export function httpFailure(
   context: Context,

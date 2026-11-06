@@ -1,5 +1,5 @@
 import * as v from 'valibot'
-import { linkSchema } from '#/infrastructure/http/hypermedia.ts'
+import { linkSchema } from '#/platform/http/hypermedia.ts'
 import type { Event } from '#/features/events/domain/event.ts'
 import type { Reservation } from '#/features/events/domain/reservation.ts'
 import type { UserId } from '#/features/events/domain/ids.ts'

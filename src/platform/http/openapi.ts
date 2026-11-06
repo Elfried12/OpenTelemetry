@@ -9,7 +9,7 @@ import {
 } from 'hono-openapi'
 import * as v from 'valibot'
 
-import { errorDtoSchema } from '#/infrastructure/http/dtos.ts'
+import { errorDtoSchema } from '#/platform/http/dtos.ts'
 
 // These helpers describe the HTTP contract; handlers still validate requests.
 // See openapi.md for schema conversion and example validation.

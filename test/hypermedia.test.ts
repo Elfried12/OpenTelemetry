@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import * as v from 'valibot'
-import { TOKEN } from '#/infrastructure/di/tokens.ts'
+import { TOKEN } from '#/platform/di/tokens.ts'
 import { UserId } from '#/features/events/domain/ids.ts'
 import {
   eventResourceSchema,

@@ -19,7 +19,7 @@ import {
   presentEventResource,
   presentReservationResource,
 } from '#/features/events/presentation/resources.ts'
-import { HttpStatusCode } from '#/infrastructure/http/http-code.ts'
+import { HttpStatusCode } from '#/platform/http/http-code.ts'
 
 export function createEventCommandController({
   identity,

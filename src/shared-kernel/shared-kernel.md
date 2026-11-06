@@ -17,7 +17,7 @@ return an array, while a command can return a success-or-failure value.
 [EventBus](event-bus.ts) defines publication and subscription without choosing a
 transport. [EventEnvelope](event-envelope.ts) adds message identity, time and
 version to a generic event value. Neither names Events or Notifications. The
-concrete [in-memory bus](../infrastructure/messaging/in-memory-event-bus.ts)
+concrete [in-memory bus](../platform/messaging/in-memory-event-bus.ts)
 belongs in infrastructure, where its listener and failure policies can change
 without putting those choices in every publisher.
 

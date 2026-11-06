@@ -1,9 +1,9 @@
 import type { Context } from 'hono'
 import { Duration } from '#/shared-kernel/duration.ts'
-import { HttpStatusCode } from '#/infrastructure/http/http-code.ts'
-import type { RateLimitQuota } from './domain/bucket.ts'
-import { RateLimitExceeded } from './domain/errors.ts'
-import type { RateLimitUnavailable } from './application/errors.ts'
+import { HttpStatusCode } from '#/platform/http/http-code.ts'
+import type { RateLimitQuota } from '../domain/bucket.ts'
+import { RateLimitExceeded } from '../domain/errors.ts'
+import type { RateLimitUnavailable } from '../application/errors.ts'
 
 export function quotaHeaders(
   c: Context,

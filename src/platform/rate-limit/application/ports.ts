@@ -1,4 +1,4 @@
-import type { BucketStrategy, RateLimitDecision } from './domain/bucket.ts'
+import type { BucketStrategy, RateLimitDecision } from '../domain/bucket.ts'
 
 export type {
   BucketState,
@@ -6,7 +6,7 @@ export type {
   BucketTransition,
   RateLimitDecision,
   RateLimitQuota,
-} from './domain/bucket.ts'
+} from '../domain/bucket.ts'
 
 export interface RateLimitRepository {
   /** Read, consume and persist must be atomic for a key and strategy. */

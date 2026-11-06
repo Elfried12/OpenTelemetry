@@ -1,15 +1,15 @@
 import * as v from 'valibot'
 import { getConnInfo } from 'hono/bun'
 import { Duration } from '#/shared-kernel/duration.ts'
-import { tokenBucket } from '#/infrastructure/rate-limit/bucket-strategies.ts'
+import { tokenBucket } from '#/platform/rate-limit/domain/bucket-strategies.ts'
 import {
   rateLimitByUserId,
   type RateLimitConfig,
-} from '#/infrastructure/rate-limit/rate-limit-middleware.ts'
+} from '#/platform/rate-limit/http/rate-limit-middleware.ts'
 import { PostgresIdentityRepository } from '#/features/identity/infrastructure/postgres-identity-repository.ts'
 import { createContainer } from '#/composition-root.ts'
 import { createPersistence } from '#/features/events/infrastructure/persistence.ts'
-import { TOKEN } from '#/infrastructure/di/tokens.ts'
+import { TOKEN } from '#/platform/di/tokens.ts'
 import { RedisClient, SQL } from 'bun'
 import { ValkeyEventReadRepository } from '#/features/events/infrastructure/repository/valkey-event-read-repository.ts'
 import { PostgresNotificationRepository } from '#/features/notifications/infrastructure/postgres-notification-repository.ts'

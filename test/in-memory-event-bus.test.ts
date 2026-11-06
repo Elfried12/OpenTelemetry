@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, mock, spyOn, test } from 'bun:test'
 import type { EventBus } from '#/shared-kernel/event-bus.ts'
 import type { EventEnvelope } from '#/shared-kernel/event-envelope.ts'
-import { InMemoryEventBus } from '#/infrastructure/messaging/in-memory-event-bus.ts'
+import { InMemoryEventBus } from '#/platform/messaging/in-memory-event-bus.ts'
 
 type Created = { _tag: 'Created'; title: string }
 type Reserved = { _tag: 'Reserved'; quantity: number }

@@ -6,7 +6,7 @@ import {
   jsonResponse,
   jsonResponseExamples,
   parameter,
-} from '#/infrastructure/http/openapi.ts'
+} from '#/platform/http/openapi.ts'
 import {
   eventResourceSchema,
   reservationResourceSchema,
@@ -21,7 +21,7 @@ import {
 import type { EventCommandController } from '#/features/events/controllers/commands/event-controller.ts'
 import type { EventQueryController } from '#/features/events/controllers/queries/event-controller.ts'
 import { httpFailure } from '#/features/events/controllers/http-result.ts'
-import { requestJson } from '#/infrastructure/http/request.ts'
+import { requestJson } from '#/platform/http/request.ts'
 import { parse } from '#/shared-kernel/validation.ts'
 import { Result } from '#/shared-kernel/result.ts'
 import {

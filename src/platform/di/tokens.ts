@@ -22,7 +22,7 @@ import type { NotificationQueryController } from '#/features/notifications/contr
 import type { NotificationService } from '#/features/notifications/application/notification-service.ts'
 import type { NotificationRepository } from '#/features/notifications/application/ports.ts'
 import type { EventBus, Unsubscribe } from '#/shared-kernel/event-bus.ts'
-import { createToken } from '#/infrastructure/di/token.ts'
+import { createToken } from '#/platform/di/token.ts'
 
 export const TOKEN = {
   EventRepository: createToken<EventRepository>('EventRepository'),

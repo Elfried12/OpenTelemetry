@@ -12,10 +12,10 @@ such as `reserve` or `cancel` using the supplied HTTP method.
 usual fields, but it also carries relations such as `self`, `collection` and
 `update`.
 
-The shared [link schema](../../../infrastructure/http/hypermedia.ts) describes
+The shared [link schema](../../../platform/http/hypermedia.ts) describes
 our small `application/json` convention. Each link contains a relative `href`
 and a `method`. This is not HAL, and a link does not describe the request body.
-Clients still need the [OpenAPI contract](../../../infrastructure/http/openapi.md)
+Clients still need the [OpenAPI contract](../../../platform/http/openapi.md)
 to know what to send.
 
 Links belong to HTTP presentation. The domain should not know route names or

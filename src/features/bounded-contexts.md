@@ -99,7 +99,7 @@ contexts to connect them. Application services do not need those same imports.
 There is also no transaction spanning both contexts. Events saves the booking,
 then publishes. Notifications handles the fact in a separate transaction. A
 notification failure does not undo the booking. The
-[event-bus guide](../infrastructure/messaging/event-bus.md) explains the resulting
+[event-bus guide](../platform/messaging/event-bus.md) explains the resulting
 delivery gaps and why duplicate suppression does not guarantee delivery.
 
 This is a modular application, not a microservices deployment. Separate processes

@@ -3,10 +3,13 @@ import type { Context } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import { Option } from '#/shared-kernel/option.ts'
 import { Result } from '#/shared-kernel/result.ts'
-import { RateLimiter } from './application/rate-limiter.ts'
+import { RateLimiter } from '../application/rate-limiter.ts'
 import { httpFailure, quotaHeaders } from './http-result.ts'
-import type { BucketStrategy, RateLimitRepository } from './ports.ts'
-import { InMemoryRateLimitRepository } from './in-memory-rate-limit-repository.ts'
+import type {
+  BucketStrategy,
+  RateLimitRepository,
+} from '../application/ports.ts'
+import { InMemoryRateLimitRepository } from '../infrastructure/in-memory-rate-limit-repository.ts'
 
 export type IpResolver = (context: Context) => string | undefined
 export type RateLimitKeyStrategy = (context: Context) => string

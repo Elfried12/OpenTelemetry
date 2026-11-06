@@ -1,6 +1,6 @@
 import * as v from 'valibot'
 import { uuidV7Pattern } from '#/features/events/domain/ids.ts'
-import { errorDtoSchema } from '#/infrastructure/http/dtos.ts'
+import { errorDtoSchema } from '#/platform/http/dtos.ts'
 
 // Response schemas validate serialized JSON, not domain Date objects.
 const identifier = v.pipe(v.string(), v.regex(uuidV7Pattern))

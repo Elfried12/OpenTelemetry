@@ -1,7 +1,8 @@
 import { Duration } from '#/shared-kernel/duration.ts'
 import { Option } from '#/shared-kernel/option.ts'
-import { InvalidRateLimitConfiguration } from './domain/errors.ts'
-import type { BucketStrategy, RateLimitDecision } from './domain/bucket.ts'
+import { TimestampQueue } from './timestamp-queue.ts'
+import { InvalidRateLimitConfiguration } from './errors.ts'
+import type { BucketStrategy, RateLimitDecision } from './bucket.ts'
 
 function validate(limit: number, period: Duration) {
   if (!Number.isSafeInteger(limit) || limit < 1) {
@@ -79,24 +80,25 @@ export function slidingWindow(limit: number, window: Duration): BucketStrategy {
   return {
     id: `sliding-window:${limit}:${windowMs}`,
     consume(state, now) {
-      const timestamps = Option.match(state, {
-        onNone: () => [],
-        onSome: (previous) => {
-          if (previous.kind === 'sliding-window') {
-            return previous.timestamps.filter((time) => time > now - windowMs)
-          }
-          return []
-        },
+      const previous = Option.match(state, {
+        onNone: () => TimestampQueue.empty(),
+        onSome: (value) =>
+          value.kind === 'sliding-window'
+            ? value.timestamps
+            : TimestampQueue.empty(),
       })
-      const allowed = timestamps.length < limit
+      // A wall-clock rollback must not append out-of-order timestamps.
+      const effectiveNow = Math.max(now, previous.newest ?? now)
+      let timestamps = previous.expireThrough(effectiveNow - windowMs)
+      const allowed = timestamps.size < limit
       if (allowed) {
-        timestamps.push(now)
+        timestamps = timestamps.enqueue(effectiveNow)
       }
-      const oldest = Option.match(Option.fromNullable(timestamps[0]), {
-        onNone: () => now,
+      const oldest = Option.match(Option.fromNullable(timestamps.oldest), {
+        onNone: () => effectiveNow,
         onSome: (time) => time,
       })
-      const newest = Option.match(Option.fromNullable(timestamps.at(-1)), {
+      const newest = Option.match(Option.fromNullable(timestamps.newest), {
         onNone: () => now,
         onSome: (time) => time,
       })
@@ -107,7 +109,7 @@ export function slidingWindow(limit: number, window: Duration): BucketStrategy {
         decision: decision(
           allowed,
           limit,
-          limit - timestamps.length,
+          limit - timestamps.size,
           oldest + windowMs - now,
           resetAt,
         ),

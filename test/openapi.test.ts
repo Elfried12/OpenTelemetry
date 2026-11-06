@@ -5,7 +5,7 @@ import {
 import { expect, test } from 'bun:test'
 import { generateSpecs } from 'hono-openapi'
 import * as v from 'valibot'
-import { TOKEN } from '#/infrastructure/di/tokens.ts'
+import { TOKEN } from '#/platform/di/tokens.ts'
 import {
   eventResourceSchema,
   reservationResourceSchema,
@@ -17,7 +17,7 @@ import {
 } from '#/features/events/validation.ts'
 import { notificationDtoSchema } from '#/features/notifications/routes/documentation.ts'
 import { preferencesSchema } from '#/features/notifications/validation.ts'
-import { errorDtoSchema } from '#/infrastructure/http/dtos.ts'
+import { errorDtoSchema } from '#/platform/http/dtos.ts'
 import { anApplication } from './support/application-fixture.ts'
 
 function fixture() {

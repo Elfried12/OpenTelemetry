@@ -4,7 +4,7 @@ import type { NotificationEnv } from '#/features/notifications/controllers/recip
 import { httpFailure } from '#/features/notifications/controllers/http-result.ts'
 import { NotFound } from '#/features/notifications/domain/errors.ts'
 import { Option } from '#/shared-kernel/option.ts'
-import { HttpStatusCode } from '#/infrastructure/http/http-code.ts'
+import { HttpStatusCode } from '#/platform/http/http-code.ts'
 
 export function createNotificationCommandController(
   service: NotificationService,

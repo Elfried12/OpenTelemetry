@@ -12,7 +12,7 @@ import { PostgresNotificationRepository } from '#/features/notifications/infrast
 import { Option } from '#/shared-kernel/option.ts'
 import { Result } from '#/shared-kernel/result.ts'
 import { createContainer } from '#/composition-root.ts'
-import { TOKEN } from '#/infrastructure/di/tokens.ts'
+import { TOKEN } from '#/platform/di/tokens.ts'
 import { anApplication } from './support/application-fixture.ts'
 
 const alice = {

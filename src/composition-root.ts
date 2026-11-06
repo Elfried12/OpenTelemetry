@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from 'hono'
-import { Container } from '#/infrastructure/di/container.ts'
-import { TOKEN } from '#/infrastructure/di/tokens.ts'
+import { Container } from '#/platform/di/container.ts'
+import { TOKEN } from '#/platform/di/tokens.ts'
 import { createApp } from '#/app.ts'
 import { CreateEventUseCase } from '#/features/events/application/commands/create-event.ts'
 import { UpdateEventUseCase } from '#/features/events/application/commands/update-event.ts'
@@ -37,13 +37,13 @@ import { createNotificationQueryController } from '#/features/notifications/cont
 import { createRecipientMiddleware } from '#/features/notifications/controllers/recipient.ts'
 import { notificationRoutes } from '#/features/notifications/routes/notification-routes.ts'
 import type { EventBus } from '#/shared-kernel/event-bus.ts'
-import { InMemoryEventBus } from '#/infrastructure/messaging/in-memory-event-bus.ts'
+import { InMemoryEventBus } from '#/platform/messaging/in-memory-event-bus.ts'
 import { createEventsReadModelSubscriber } from '#/features/events/infrastructure/events-read-model-subscriber.ts'
 
 import {
   rateLimitMiddleware,
   type RateLimitConfig,
-} from '#/infrastructure/rate-limit/rate-limit-middleware.ts'
+} from '#/platform/rate-limit/http/rate-limit-middleware.ts'
 
 export interface ContainerOptions {
   applicationSecretKey: string

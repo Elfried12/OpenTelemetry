@@ -18,7 +18,7 @@ first, so requests it rejects never reach the limiter or consume quota.
 
 ## Choose who shares quota
 
-[rate-limit-middleware.ts](rate-limit-middleware.ts) separates the key strategy
+[rate-limit-middleware.ts](http/rate-limit-middleware.ts) separates the key strategy
 from the bucket algorithm. The key answers which requests share quota:
 
 | Key strategy         | Requests sharing a bucket                                                                  |
@@ -38,7 +38,7 @@ client-supplied headers would let callers choose new quota keys.
 
 ## Choose how quota recovers
 
-[bucket-strategies.ts](bucket-strategies.ts) provides four algorithms. Factory
+[bucket-strategies.ts](domain/bucket-strategies.ts) provides four algorithms. Factory
 arguments are a positive safe-integer capacity and a positive
 [Duration](../../shared-kernel/duration.ts) value object. `Duration.create(ms)`
 returns a `Result` for untrusted input. `Duration.makeUnsafe(ms)` validates and
@@ -109,9 +109,10 @@ roughly second 120.
 Use it for rules that need an exact rolling quota, such as limiting login
 attempts or expensive exports over the last minute. This implementation keeps
 an exact log, not an approximate weighted counter. The trade-off is storing up
-to `limit` timestamps per client and filtering them on each request. Large
-limits across many clients cost more memory and processing than the other
-strategies.
+to `limit` timestamps per client. A persistent FIFO queue expires timestamps
+from the front instead of filtering and copying the entire active window on
+every request. Large limits across many clients still cost more memory than
+the other strategies.
 
 ### Token bucket: save credit for bursts
 
@@ -176,8 +177,8 @@ window and per-session keys:
 ```ts
 import { getConnInfo } from 'hono/bun'
 import { Duration } from '#/shared-kernel/duration.ts'
-import { slidingWindow } from '#/infrastructure/rate-limit/bucket-strategies.ts'
-import { rateLimitBySession } from '#/infrastructure/rate-limit/rate-limit-middleware.ts'
+import { slidingWindow } from '#/platform/rate-limit/domain/bucket-strategies.ts'
+import { rateLimitBySession } from '#/platform/rate-limit/http/rate-limit-middleware.ts'
 
 const rateLimitConfig = {
   key: rateLimitBySession((c) => getConnInfo(c).remote.address),
@@ -244,18 +245,63 @@ exposing storage error details.
 
 ## Storage and concurrency
 
-The default [InMemoryRateLimitRepository](in-memory-rate-limit-repository.ts)
+The default [InMemoryRateLimitRepository](infrastructure/in-memory-rate-limit-repository.ts)
 keeps bucket state in nested maps by policy ID and client key, without JSON
 serialization or delimiter-based composite keys. Its read, consume and write steps have no
 intervening `await`, so concurrent requests in that process cannot consume the
-same available slot. It ignores expired state on access and sweeps expired
-entries on traffic at most once per minute. No background timer runs cleanup.
+same available slot. An indexed min-heap tracks one expiration per live bucket.
+Each request removes due entries before consumption, without scanning live
+buckets. No background timer runs cleanup.
 
 State disappears on restart. Separate API instances have independent quotas.
 For a shared limit, pass a repository through `rateLimitConfig.repository` that
-implements [RateLimitRepository](ports.ts). Reading, consuming and persisting
+implements [RateLimitRepository](application/ports.ts). Reading, consuming and persisting
 state must be atomic for a key and strategy. Separate remote reads and writes
 would let concurrent requests spend the same quota.
+
+## Data structure lessons
+
+### Sliding window: array scan versus FIFO queue
+
+The simple baseline filters an array of accepted timestamps on each request.
+With `k` active timestamps, even a rejected request scans and copies up to `k`
+values. The [timestamp queue](domain/timestamp-queue.ts) instead keeps two linked
+lists: a front in FIFO order and a back in reverse insertion order. Enqueue
+prepends to the back. When the front empties, dequeue reverses the back once.
+
+Nodes are immutable and unchanged lists are shared between versions. Bucket
+transitions remain pure without copying the entire window. Along the repository's
+linear history, each timestamp is enqueued, reversed and removed at most once.
+Queue operations are amortized O(1), not worst-case O(1). A request expiring many
+timestamps can still take O(k). Repeatedly branching from old versions can repeat
+reversal work, so the amortized claim applies to linear consumption histories.
+
+FIFO expiration requires ordered timestamps. The sliding strategy clamps a
+backward wall-clock reading to its newest accepted timestamp before expiration
+and insertion. This conservatively delays recovery rather than corrupting order.
+The repository must own the latest returned state; keeping historical versions
+would also keep their nodes alive. Linked nodes have allocation overhead, so
+this is not a claim that the queue is faster for every quota size.
+
+### Expiration: full scan versus indexed min-heap
+
+The baseline sweeps all `n` stored buckets periodically. The
+[expiration heap](infrastructure/expiration-heap.ts) orders buckets by deadline and keeps a
+map from bucket identity to heap position. Updating a deadline repairs the heap
+upward or downward in O(log n), without appending obsolete entries. Storage is
+O(n), with exactly one heap entry per bucket.
+
+Checking whether any bucket is due is O(1). Removing `e` expired buckets costs
+O(e log n), and does not inspect unrelated live buckets. Cleanup runs on traffic,
+so idle processes retain expired state until the next request or explicit
+`prune`. A large batch of expirations can still delay that next request. The
+heap also adds memory and update overhead compared with a periodic scan.
+
+[Data structure tests](../../../test/rate-limit-data-structures.test.ts) compare
+the queue with an array baseline, the heap with a sorted reference, and the
+sliding limiter with the original algorithm. These prove behavior, not a
+latency or memory improvement. Benchmark realistic client counts, quota sizes,
+rejections and expiration bursts before making performance claims.
 
 ## Test without waiting
 
@@ -266,5 +312,5 @@ See [rate-limit.test.ts](../../../test/rate-limit.test.ts).
 Run the focused tests with:
 
 ```sh
-bun test ./test/rate-limit.test.ts
+bun test ./test/rate-limit.test.ts ./test/rate-limit-data-structures.test.ts
 ```

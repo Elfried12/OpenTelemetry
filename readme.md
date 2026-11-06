@@ -52,7 +52,7 @@ No model API key is needed.
 
 ## Rate limiting
 
-See [Rate limiting](src/infrastructure/rate-limit/rate-limiting.md) for the
+See [Rate limiting](src/platform/rate-limit/rate-limiting.md) for the
 default policy, configuration, bucket algorithms and storage constraints.
 
 ## Interactive API documentation
@@ -67,7 +67,7 @@ adding the `Bearer` prefix. Personal endpoints require this session.
 Sessions expire after 24 hours. Unknown, expired and revoked tokens return `401`.
 
 Each route file documents its operations. The helpers in
-`src/infrastructure/http/openapi.ts` reuse Valibot schemas and infer JSON example
+`src/platform/http/openapi.ts` reuse Valibot schemas and infer JSON example
 types from them. `documentRoute` adds shared error responses and session requirements.
 `jsonBody`, `jsonResponse` and `parameter` build the OpenAPI descriptions.
 Validators and application code check rules that JSON Schema cannot express,
@@ -75,7 +75,7 @@ such as future dates and a non-empty patch. The operation descriptions explain
 these rules too.
 
 For the implementation choices, see
-[OpenAPI and living documentation](src/infrastructure/http/openapi.md).
+[OpenAPI and living documentation](src/platform/http/openapi.md).
 It connects the schema and test setup to Cyrille Martraire's book
 *Living Documentation: Continuous Knowledge Sharing by Design*.
 
@@ -304,14 +304,25 @@ src/
       infrastructure/   Event translation and notification repositories
       routes/           Notifications HTTP boundary and input validation
   shared-kernel/        Result, Option, handler and messaging abstractions
-  infrastructure/
+  platform/             Technical modules shared across features
     di/                 Generic container and composition tokens
     messaging/          In-process event bus
-    http/               Shared HttpStatusCode enum
+    http/               Shared HTTP status codes, schemas and OpenAPI helpers
+    rate-limit/
+      domain/           Bucket policies and persistent timestamp queue
+      application/      Rate limiter, repository port and storage errors
+      infrastructure/   In-memory repository and indexed expiration heap
+      http/             Middleware, quota headers and HTTP error mapping
 sql/init.sql            Three PostgreSQL schemas and seed data
 sql/migrate-identity-sessions.sql  Splits login accounts from booking profiles
 sql/migrate-bounded-contexts.sql  Moves existing public tables to events
 ```
+
+Business capabilities live in `features/`; shared technical capabilities live in
+`platform/`. A platform module can have its own domain rules and application
+orchestration. `infrastructure/` inside a module contains concrete adapters, not
+other architectural layers. Rate limiting follows this structure without making
+it part of the booking domain. See the [platform guide](src/platform/platform.md).
 
 The domain and application layers do not depend on Hono or Valibot.
 `test/bounded-contexts.test.ts` guards the cross-context import rule. The HTTP layer
@@ -334,7 +345,7 @@ These guides explain the patterns through this lesson's implementation:
 - [Controllers](src/features/events/controllers/controller.md): HTTP translation without business or persistence rules.
 - [Application services](src/features/notifications/application/application-service.md): orchestration, domain behavior, controllers and transaction boundaries, using Notifications and Events as examples.
 - [Services and dependency injection](src/features/events/application/dependency-injection.md): explicit dependencies, tokens, lifetimes and composition-root ownership.
-- [Events and the in-memory bus](src/infrastructure/messaging/event-bus.md): facts versus commands, publication after commit and delivery failures.
+- [Events and the in-memory bus](src/platform/messaging/event-bus.md): facts versus commands, publication after commit and delivery failures.
 - [Bounded contexts and feature folders](src/features/bounded-contexts.md): model ownership, contract translation and schema boundaries.
 - [BDD and fluent test APIs](test/bdd.md): behavior-focused scenarios, given/when/then and method chaining.
 - [Functions as values and execution policies](src/features/events/infrastructure/repository/functional-composition.md): higher-order functions, predicates and retry composition.

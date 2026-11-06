@@ -1,12 +1,12 @@
 import type { Hono } from 'hono'
 import * as v from 'valibot'
 import type { SessionService } from '../application/session-service.ts'
-import { requestJson } from '#/infrastructure/http/request.ts'
+import { requestJson } from '#/platform/http/request.ts'
 import {
   documentRoute,
   jsonBody,
   jsonResponse,
-} from '#/infrastructure/http/openapi.ts'
+} from '#/platform/http/openapi.ts'
 import { Result } from '#/shared-kernel/result.ts'
 
 const userIdPattern =

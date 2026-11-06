@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
-import { documentationRoutes } from '#/infrastructure/http/openapi.ts'
-import { HttpStatusCode } from '#/infrastructure/http/http-code.ts'
+import { documentationRoutes } from '#/platform/http/openapi.ts'
+import { HttpStatusCode } from '#/platform/http/http-code.ts'
 import { HTTPException } from 'hono/http-exception'
 import type { EventCommandController } from '#/features/events/controllers/commands/event-controller.ts'
 import type { EventQueryController } from '#/features/events/controllers/queries/event-controller.ts'

@@ -1,7 +1,7 @@
 import { Result } from '#/shared-kernel/result.ts'
 import type { BucketStrategy, RateLimitQuota } from '../domain/bucket.ts'
 import { RateLimitExceeded } from '../domain/errors.ts'
-import type { RateLimitRepository } from '../ports.ts'
+import type { RateLimitRepository } from './ports.ts'
 import { RateLimitUnavailable } from './errors.ts'
 
 export class RateLimiter {

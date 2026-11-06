@@ -5,7 +5,7 @@ import {
   jsonBody,
   jsonResponse,
   parameter,
-} from '#/infrastructure/http/openapi.ts'
+} from '#/platform/http/openapi.ts'
 import { notificationDtoSchema, notificationExample } from './documentation.ts'
 import type { MiddlewareHandler } from 'hono'
 import type { NotificationCommandController } from '#/features/notifications/controllers/commands/notification-controller.ts'
@@ -16,7 +16,7 @@ import {
   notificationIdSchema,
   preferencesSchema,
 } from '#/features/notifications/validation.ts'
-import { requestJson } from '#/infrastructure/http/request.ts'
+import { requestJson } from '#/platform/http/request.ts'
 import { parse } from '#/shared-kernel/validation.ts'
 import { Result } from '#/shared-kernel/result.ts'
 

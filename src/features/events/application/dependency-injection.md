@@ -36,10 +36,10 @@ A composition root is the place that chooses implementations and connects them.
 It is allowed to know concrete classes from several layers because assembling
 the application is its job. The application handlers do not make those choices.
 
-The generic [container](../../../infrastructure/di/container.ts) implements typed
+The generic [container](../../../platform/di/container.ts) implements typed
 singleton and factory registrations. It has no application registrations.
-[Token creation](../../../infrastructure/di/token.ts) is separate from the
-[application token registry](../../../infrastructure/di/tokens.ts).
+[Token creation](../../../platform/di/token.ts) is separate from the
+[application token registry](../../../platform/di/tokens.ts).
 
 That split keeps the mechanism independent of this lesson's business names.
 `Container` knows how to register and resolve a value. `TOKEN` names the values
@@ -92,12 +92,12 @@ adapter as a singleton does not teach the container how to close its connection.
 ## Event publication and subscription
 
 The [event bus port](../../../shared-kernel/event-bus.ts) belongs in the shared
-kernel. Its [in-memory adapter](../../../infrastructure/messaging/in-memory-event-bus.ts)
+kernel. Its [in-memory adapter](../../../platform/messaging/in-memory-event-bus.ts)
 belongs in infrastructure. The root chooses that adapter and supplies the same
 instance to Events handlers and the Notifications subscription. Neither context
 constructs the bus or discovers the other through the container.
 
-See [events and the in-memory bus](../../../infrastructure/messaging/event-bus.md)
+See [events and the in-memory bus](../../../platform/messaging/event-bus.md)
 for the published contract, commit-before-publication sequence and failure policy.
 
 The [Notifications subscriber](../../notifications/infrastructure/events-subscriber.ts)

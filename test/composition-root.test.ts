@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { anApplication } from './support/application-fixture.ts'
-import { TOKEN } from '#/infrastructure/di/tokens.ts'
+import { TOKEN } from '#/platform/di/tokens.ts'
 import { createContainer } from '#/composition-root.ts'
 import type { DomainEvent } from '#/features/events/contracts/events.ts'
 import type { EventEnvelope } from '#/shared-kernel/event-envelope.ts'

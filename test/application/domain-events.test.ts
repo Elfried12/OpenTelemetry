@@ -4,7 +4,7 @@ import {
   anExistingEvent,
 } from '../support/application-fixture.ts'
 import { EventId, ReservationId } from '#/features/events/domain/ids.ts'
-import { TOKEN } from '#/infrastructure/di/tokens.ts'
+import { TOKEN } from '#/platform/di/tokens.ts'
 import { Result } from '#/shared-kernel/result.ts'
 
 test('successful commands deliver domain facts inside event envelopes', async () => {

@@ -1,12 +1,12 @@
+import type { TimestampQueue } from './timestamp-queue.ts'
 import type { Duration } from '#/shared-kernel/duration.ts'
 import type { Option } from '#/shared-kernel/option.ts'
 
 export type BucketState =
   | { kind: 'fixed-window'; start: number; count: number }
-  | { kind: 'sliding-window'; timestamps: number[] }
+  | { kind: 'sliding-window'; timestamps: TimestampQueue }
   | { kind: 'token-bucket'; updatedAt: number; tokens: number }
   | { kind: 'leaky-bucket'; updatedAt: number; level: number }
-
 
 export interface RateLimitQuota {
   limit: number
