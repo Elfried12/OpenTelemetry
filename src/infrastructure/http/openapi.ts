@@ -11,6 +11,8 @@ import * as v from 'valibot'
 
 import { errorDtoSchema } from '#/infrastructure/http/dtos.ts'
 
+// These helpers describe the HTTP contract; handlers still validate requests.
+// See openapi.md for schema conversion and example validation.
 // InferInput types examples as JSON values before Date and branded-type transforms.
 export function jsonContent<Schema extends v.GenericSchema>(
   schema: Schema,
@@ -130,6 +132,7 @@ export function documentRoute(
   })
 }
 
+// Scalar reads the generated document, so there is no second UI contract to maintain.
 export function documentationRoutes(app: Hono) {
   app.get(
     '/openapi.json',

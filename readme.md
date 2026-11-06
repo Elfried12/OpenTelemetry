@@ -50,6 +50,11 @@ applies to `VALKEY_PORT` and `VALKEY_URL`. Restart the API after changing its
 configuration, and rerun `docker compose up -d --wait` after changing service ports.
 No model API key is needed.
 
+## Rate limiting
+
+See [Rate limiting](src/infrastructure/rate-limit/rate-limiting.md) for the
+default policy, configuration, bucket algorithms and storage constraints.
+
 ## Interactive API documentation
 
 Open [Scalar](http://127.0.0.1:3000/docs) to browse and try requests. The generated
@@ -68,6 +73,11 @@ types from them. `documentRoute` adds shared error responses and session require
 Validators and application code check rules that JSON Schema cannot express,
 such as future dates and a non-empty patch. The operation descriptions explain
 these rules too.
+
+For the implementation choices, see
+[OpenAPI and living documentation](src/infrastructure/http/openapi.md).
+It connects the schema and test setup to Cyrille Martraire's book
+*Living Documentation: Continuous Knowledge Sharing by Design*.
 
 ### HATEOAS for events and reservations
 
@@ -99,6 +109,9 @@ that a later request will succeed.
 The schemas and presenters in `src/features/events/presentation/resources.ts`
 define these links. Domain objects and the underlying DTOs do not carry links.
 Notification responses do not include them.
+
+See [HATEOAS and action links](src/features/events/presentation/hateoas.md) for
+why links belong in presentation and why commands must still check their rules.
 
 ## REST endpoints
 

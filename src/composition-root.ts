@@ -1,3 +1,4 @@
+import type { MiddlewareHandler } from 'hono'
 import { Container } from '#/infrastructure/di/container.ts'
 import { TOKEN } from '#/infrastructure/di/tokens.ts'
 import { createApp } from '#/app.ts'
@@ -39,8 +40,14 @@ import type { EventBus } from '#/shared-kernel/event-bus.ts'
 import { InMemoryEventBus } from '#/infrastructure/messaging/in-memory-event-bus.ts'
 import { createEventsReadModelSubscriber } from '#/features/events/infrastructure/events-read-model-subscriber.ts'
 
+import {
+  rateLimitMiddleware,
+  type RateLimitConfig,
+} from '#/infrastructure/rate-limit/rate-limit-middleware.ts'
+
 export interface ContainerOptions {
   applicationSecretKey: string
+  rateLimitConfig?: RateLimitConfig
   repository: EventRepository
   identityRepository?: IdentityRepository
   readRepository?: EventProjectionRepository
@@ -199,10 +206,19 @@ export function createContainer(options: ContainerOptions): Container {
       createNotificationQueryController(c.resolve(TOKEN.NotificationService)),
     )
     .singleton(TOKEN.App, (c) => {
+      const middlewares: MiddlewareHandler[] = []
+      if (options.rateLimitConfig) {
+        const clock = c.resolve(TOKEN.Clock)
+        const rateLimit = rateLimitMiddleware(options.rateLimitConfig, () =>
+          clock.now(),
+        )
+        middlewares.push(rateLimit)
+      }
       const app = createApp(
         c.resolve(TOKEN.EventCommandController),
         c.resolve(TOKEN.EventQueryController),
         sessionMiddleware(c.resolve(TOKEN.SessionService)),
+        ...middlewares,
       )
       sessionRoutes(app, c.resolve(TOKEN.SessionService))
       notificationRoutes(

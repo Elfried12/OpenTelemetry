@@ -7,6 +7,8 @@ import { Option } from '#/shared-kernel/option.ts'
 import { eventDtoSchema, reservationDtoSchema } from './dtos.ts'
 import { presentEvent, presentReservation } from './event-presenter.ts'
 
+// HTTP resources extend DTOs with navigation. Domain objects stay independent
+// of route names and methods. See hateoas.md for the link conventions.
 export const eventResourceSchema = v.strictObject({
   ...eventDtoSchema.entries,
   _links: v.strictObject({
@@ -33,6 +35,8 @@ export function presentEventResource(
   now: Date,
 ): v.InferOutput<typeof eventResourceSchema> {
   const href = `/events/${event.data.id}`
+  // Use the caller's clock so the link set describes one testable instant.
+  // Links do not guarantee capacity or replace command-side rule checks.
   const upcoming = event.data.startsAt.getTime() > now.getTime()
   const links: v.InferOutput<typeof eventResourceSchema>['_links'] = {
     self: { href, method: 'GET' },

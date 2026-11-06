@@ -1,4 +1,11 @@
 import * as v from 'valibot'
+import { getConnInfo } from 'hono/bun'
+import { Duration } from '#/shared-kernel/duration.ts'
+import { tokenBucket } from '#/infrastructure/rate-limit/bucket-strategies.ts'
+import {
+  rateLimitByUserId,
+  type RateLimitConfig,
+} from '#/infrastructure/rate-limit/rate-limit-middleware.ts'
 import { PostgresIdentityRepository } from '#/features/identity/infrastructure/postgres-identity-repository.ts'
 import { createContainer } from '#/composition-root.ts'
 import { createPersistence } from '#/features/events/infrastructure/persistence.ts'
@@ -31,8 +38,13 @@ const readModelClient = new RedisClient(
 const readRepository = new ValkeyEventReadRepository(readModelClient)
 // Load all stored events into the read model before accepting requests.
 await readRepository.replaceEvents(await persistence.repository.listEvents({}))
+const rateLimitConfig: RateLimitConfig = {
+  key: rateLimitByUserId((c) => getConnInfo(c).remote.address),
+  bucket: tokenBucket(100, Duration.makeUnsafe(60_000)),
+}
 const container = createContainer({
   applicationSecretKey,
+  rateLimitConfig,
   repository: persistence.repository,
   identityRepository: new PostgresIdentityRepository(notificationSql),
   readRepository,

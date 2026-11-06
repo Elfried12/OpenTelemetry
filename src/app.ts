@@ -12,9 +12,13 @@ export function createApp(
   commands: EventCommandController,
   queries: EventQueryController,
   authenticate: MiddlewareHandler,
+  ...middlewares: MiddlewareHandler[]
 ) {
   const app = new Hono()
   app.use('*', authenticate)
+  for (const middleware of middlewares) {
+    app.use('*', middleware)
+  }
   eventRoutes(app, commands, queries)
   documentationRoutes(app)
   app.notFound((c) =>

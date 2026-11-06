@@ -39,3 +39,10 @@ not an expected invalid request.
 body for expected application failures. The
 [controller](../controllers/controller.md) sends the response. Neither presenter
 queries the repository or decides whether seats can be reserved.
+
+## HTTP resources add links
+
+[resources.ts](resources.ts) adds `_links` to the DTOs for HTTP responses.
+The DTO presenters still handle data conversion; resource presenters choose
+navigation and action links from the current state. See
+[HATEOAS and action links](hateoas.md) for the conventions and their limits.
