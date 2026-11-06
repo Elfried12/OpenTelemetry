@@ -7,6 +7,7 @@ import {
   test,
 } from 'bun:test'
 import type { Session } from '#/features/identity/application/ports.ts'
+import { Option } from '#/shared-kernel/option.ts'
 import { given } from './support/given.ts'
 import {
   alice,
@@ -57,7 +58,7 @@ describe.each(identityRepositoryFactories)(
           repository.findSession(session.tokenHash, createdAt),
         )
         .then((result) => {
-          expect(result).toBeUndefined()
+          expect(result).toEqual(Option.none())
         }))
 
     async function aStoredSession() {
@@ -69,13 +70,19 @@ describe.each(identityRepositoryFactories)(
       given(aStoredSession)
         .when(({ peer }) => peer.findSession(session.tokenHash, createdAt))
         .then((result) => {
-          expect(result).toEqual(session)
+          expect(result).toEqual(Option.some(session))
         }))
 
     test.each([
-      { at: new Date('2030-01-01T23:59:59.999Z'), expected: session },
-      { at: expiresAt, expected: undefined },
-      { at: new Date('2030-01-02T00:00:00.001Z'), expected: undefined },
+      {
+        at: new Date('2030-01-01T23:59:59.999Z'),
+        expected: Option.some(session),
+      },
+      { at: expiresAt, expected: Option.none<Session>() },
+      {
+        at: new Date('2030-01-02T00:00:00.001Z'),
+        expected: Option.none<Session>(),
+      },
     ])('expiration boundary at $at', ({ at, expected }) =>
       given(aStoredSession)
         .when(({ peer }) => peer.findSession(session.tokenHash, at))
@@ -91,7 +98,7 @@ describe.each(identityRepositoryFactories)(
           return repository.findSession(session.tokenHash, createdAt)
         })
         .then((result) => {
-          expect(result).toBeUndefined()
+          expect(result).toEqual(Option.none())
         }))
 
     test('revocation leaves another session valid', () =>
@@ -106,7 +113,7 @@ describe.each(identityRepositoryFactories)(
           return repository.findSession(other.tokenHash, createdAt)
         })
         .then((result, { other }) => {
-          expect(result).toEqual(other)
+          expect(result).toEqual(Option.some(other))
         }))
 
     test('repeated revocation is harmless', () =>
@@ -117,7 +124,7 @@ describe.each(identityRepositoryFactories)(
           return repository.findSession(session.tokenHash, createdAt)
         })
         .then((result) => {
-          expect(result).toBeUndefined()
+          expect(result).toEqual(Option.none())
         }))
 
     test('revoking an unknown token is harmless', () =>
@@ -127,7 +134,7 @@ describe.each(identityRepositoryFactories)(
           return repository.findSession(session.tokenHash, createdAt)
         })
         .then((result) => {
-          expect(result).toEqual(session)
+          expect(result).toEqual(Option.some(session))
         }))
   },
 )

@@ -7,6 +7,7 @@ import type { EventQueryController } from '#/features/events/controllers/queries
 import type { MiddlewareHandler } from 'hono'
 import { eventRoutes } from '#/features/events/routes/event-routes.ts'
 import { presentError } from '#/features/events/presentation/event-presenter.ts'
+import { httpTelemetry } from './platform/http/http-middleware'
 
 export function createApp(
   commands: EventCommandController,
@@ -15,6 +16,7 @@ export function createApp(
   ...middlewares: MiddlewareHandler[]
 ) {
   const app = new Hono()
+  app.use('*', httpTelemetry)
   app.use('*', authenticate)
   for (const middleware of middlewares) {
     app.use('*', middleware)

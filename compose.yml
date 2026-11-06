@@ -30,6 +30,13 @@ services:
       timeout: 5s
       retries: 10
 
+  otel-desktop-viewer:
+    image: ghcr.io/ctrlspice/otel-desktop-viewer:v0.4.1
+    ports:
+      - '8000:8000' # viewer UI
+      - '4317:4317' # OTLP/gRPC
+      - '4318:4318' # OTLP/HTTP
+
   adminer:
     image: adminer:5
     ports:
